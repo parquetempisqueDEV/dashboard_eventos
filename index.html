@@ -423,7 +423,7 @@ function App(){
   async function cycleStatus(id){const t=tasks.find(x=>x.id===id);if(t)await updateTask({...t,status:STATUSES[(STATUSES.indexOf(t.status)+1)%STATUSES.length]});}
   async function deleteTask(id){
     const {error}=await sb.from("eventos_tasks").delete().eq("id",id);
-    if(error){showT("Error al eliminar","err");return;}
+    if(error){showT("Error al eliminar","err");return;
     setTasks(ts=>ts.filter(t=>t.id!==id)); if(detailTask?.id===id)setDetailTask(null); showT("Eliminado");
   }
   async function addMilestone(m){
