@@ -273,28 +273,53 @@ function DetailModal({task,onClose,onUpdate}){
 }
 
 // ── MILESTONES PANEL ───────────────────────────────────────────
-function MilestonesPanel({milestones,tasks,onAdd,onToggle,onDelete}){
+function MilestonesPanel({milestones,tasks,onAdd,onToggle,onDelete,onEdit}){
   const [form,setForm]=useState(EMPTY_MILESTONE);
   const [show,setShow]=useState(false);
+  const [editId,setEditId]=useState(null);
+  const [sortAsc,setSortAsc]=useState(true);
   const iS={width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:13,marginTop:4};
-  function handleAdd(){if(!form.name.trim())return;onAdd(form);setForm(EMPTY_MILESTONE);setShow(false);}
+
+  function handleAdd(){
+    if(!form.name.trim())return;
+    if(editId!==null){onEdit({...form,id:editId});setEditId(null);}
+    else onAdd(form);
+    setForm(EMPTY_MILESTONE);setShow(false);
+  }
+  function startEdit(m){setForm({name:m.name,deadline:m.deadline,description:m.description,closed:m.closed});setEditId(m.id);setShow(true);}
+  function cancelForm(){setShow(false);setEditId(null);setForm(EMPTY_MILESTONE);}
+
+  const sorted=[...milestones].sort((a,b)=>{
+    const d=new Date(a.deadline)-new Date(b.deadline);
+    return sortAsc?d:-d;
+  });
+
   return(
     <div style={{background:"white",borderRadius:16,padding:20,border:"1px solid #c7d2fe",marginBottom:16}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <h3 style={{margin:0,fontSize:14,fontWeight:700,color:BLUE_DARK}}>🎯 Proyectos / Objetivos</h3>
-        <button onClick={()=>setShow(s=>!s)} style={{background:BLUE_MID,color:"white",border:"none",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Nuevo</button>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <h3 style={{margin:0,fontSize:14,fontWeight:700,color:BLUE_DARK}}>🎯 Proyectos / Objetivos</h3>
+          <button onClick={()=>setSortAsc(s=>!s)} title="Ordenar por fecha"
+            style={{background:BLUE_LIGHT,color:BLUE_DARK,border:`1px solid #c7d2fe`,borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+            📅 {sortAsc?"↑ Asc":"↓ Desc"}
+          </button>
+        </div>
+        <button onClick={()=>{setEditId(null);setForm(EMPTY_MILESTONE);setShow(s=>!s);}} style={{background:BLUE_MID,color:"white",border:"none",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Nuevo</button>
       </div>
+
       {show&&<div style={{background:BLUE_LIGHT,borderRadius:12,padding:16,marginBottom:12}}>
+        <p style={{margin:"0 0 8px",fontSize:12,fontWeight:700,color:BLUE_DARK}}>{editId?"✏️ Editar objetivo":"➕ Nuevo objetivo"}</p>
         <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Nombre del objetivo *" style={iS}/>
         <input value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Descripción (opcional)" style={{...iS,marginTop:8}}/>
         <input type="date" value={form.deadline} onChange={e=>setForm(f=>({...f,deadline:e.target.value}))} style={{...iS,marginTop:8}}/>
         <div style={{display:"flex",gap:8,marginTop:10}}>
-          <button onClick={handleAdd} style={{background:BLUE_MID,color:"white",border:"none",borderRadius:8,padding:"7px 20px",fontSize:12,fontWeight:700,cursor:"pointer"}}>Agregar</button>
-          <button onClick={()=>setShow(false)} style={{background:"white",color:"#6b7280",border:"1px solid #e5e7eb",borderRadius:8,padding:"7px 14px",fontSize:12,cursor:"pointer"}}>Cancelar</button>
+          <button onClick={handleAdd} style={{background:BLUE_MID,color:"white",border:"none",borderRadius:8,padding:"7px 20px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{editId?"Guardar cambios":"Agregar"}</button>
+          <button onClick={cancelForm} style={{background:"white",color:"#6b7280",border:"1px solid #e5e7eb",borderRadius:8,padding:"7px 14px",fontSize:12,cursor:"pointer"}}>Cancelar</button>
         </div>
       </div>}
-      {milestones.length===0&&<p style={{textAlign:"center",color:"#9ca3af",fontSize:13,padding:"12px 0"}}>No hay objetivos definidos aún</p>}
-      {milestones.map(m=>{
+
+      {sorted.length===0&&<p style={{textAlign:"center",color:"#9ca3af",fontSize:13,padding:"12px 0"}}>No hay objetivos definidos aún</p>}
+      {sorted.map(m=>{
         const mt=tasks.filter(t=>String(t.milestoneId)===String(m.id));
         const done=mt.filter(t=>t.status==="Listo").length;
         const pct=mt.length?Math.round(done/mt.length*100):0;
@@ -315,6 +340,7 @@ function MilestonesPanel({milestones,tasks,onAdd,onToggle,onDelete}){
                 </div>
               </div>
               <div style={{display:"flex",gap:6,flexShrink:0}}>
+                <button onClick={()=>startEdit(m)} style={{background:"#e0e7ff",color:BLUE_DARK,border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✏️ Editar</button>
                 <button onClick={()=>onToggle(m)} style={{background:m.closed?"#fef9c3":"#dcfce7",color:m.closed?"#854d0e":"#15803d",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{m.closed?"Reabrir":"✓ Cerrar"}</button>
                 <button onClick={()=>onDelete(m.id)} style={{background:"#fee2e2",color:"#991b1b",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✕</button>
               </div>
@@ -406,7 +432,12 @@ function App(){
     if(error){showT("Error: "+error.message,"err");return;}
     setMilestones(ms=>[...ms,rowToMilestone(data)]); showT("Objetivo creado ✅");
   }
-  async function toggleMilestone(m){
+  async function editMilestone(m){
+    const {error}=await sb.from("eventos_milestones").update(milestoneToRow(m)).eq("id",m.id);
+    if(error){showT("Error al editar","err");return;}
+    setMilestones(ms=>ms.map(x=>x.id===m.id?m:x));
+    showT("Objetivo actualizado ✅");
+  }
     const u={...m,closed:!m.closed};
     const {error}=await sb.from("eventos_milestones").update({closed:u.closed}).eq("id",m.id);
     if(error){showT("Error","err");return;}
@@ -585,7 +616,7 @@ function App(){
         </>}
 
         {view==="esfuerzo"&&<EsfuerzoChart tasks={tasks}/>}
-        {view==="milestones"&&<MilestonesPanel milestones={milestones} tasks={tasks} onAdd={addMilestone} onToggle={toggleMilestone} onDelete={deleteMilestone}/>}
+        {view==="milestones"&&<MilestonesPanel milestones={milestones} tasks={tasks} onAdd={addMilestone} onToggle={toggleMilestone} onDelete={deleteMilestone} onEdit={editMilestone}/>}
 
         {view==="resumen"&&<div style={{background:"white",borderRadius:16,padding:24,border:"1px solid #c7d2fe"}}>
           <div style={{display:"flex",alignItems:"center",gap:16,borderBottom:"1px solid #c7d2fe",paddingBottom:16,marginBottom:20}}>
