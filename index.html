@@ -17,108 +17,78 @@
 <script type="text/babel">
 const { useState, useMemo, useEffect } = React;
 
-// ── EMAILJS CONFIG ─────────────────────────────────────────────
 const EMAILJS_SERVICE_ID  = "service_okzsdbl";
 const EMAILJS_TEMPLATE_ID = "template_gcrf2nk";
 const EMAILJS_PUBLIC_KEY  = "oM3e7j54ee9YFuhLx";
 
-// ── SUPABASE ───────────────────────────────────────────────────
 const SUPABASE_URL = "https://vcdgurkuoqsdvwvpnevr.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjZGd1cmt1b3FzZHZ3dnBuZXZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MjYxNDQsImV4cCI6MjA4ODMwMjE0NH0._fC7LXnggqXyniyOAb2orZj-QHY1_Xrf_-FnKVju9S8";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ── CONSTANTES ─────────────────────────────────────────────────
-const TEAM       = ["Andy","Marianela","Adrián","Tamara","Abel"];
-const TEAM_EMAILS = { "Andy":"arojas@parquetempisque.com","Abel":"acamposp@parquetempisque.com","Marianela":"msanchez@parquetempisque.com","Adrián":"agurierrez@parquetempisque.com","Tamara":"tmunoz@parquetempisque.com" };
-const PRIORITIES = ["Alta","Media","Baja"];
-const STATUSES   = ["Pendiente","En progreso","Listo"];
-const CATEGORIES = ["Logística","Decoración","Comunicación","Proveedores","Presupuesto","Coordinación","Otro"];
-const EFFORT_PTS = [1,2,3,5,8];
+const TEAM        = ["Andy","Marianela","Adrián","Tamara","Abel"];
+const TEAM_EMAILS = {"Andy":"arojas@parquetempisque.com","Abel":"acamposp@parquetempisque.com","Marianela":"msanchez@parquetempisque.com","Adrián":"agurierrez@parquetempisque.com","Tamara":"tmunoz@parquetempisque.com"};
+const PRIORITIES  = ["Alta","Media","Baja"];
+const STATUSES    = ["Pendiente","En progreso","Listo"];
+const CATEGORIES  = ["Logística","Decoración","Comunicación","Proveedores","Presupuesto","Coordinación","Otro"];
+const EFFORT_PTS  = [1,2,3,5,8];
 
-const BLUE="", BLUE_DARK="#134522", BLUE_LIGHT="#e8f5ee", BLUE_MID="#1a5c2e";
+const BLUE_DARK="#134522", BLUE_LIGHT="#e8f5ee", BLUE_MID="#1a5c2e";
 const AVATAR_COLORS=["#1a5c2e","#0891b2","#7c3aed","#b45309","#0e7490"];
-const today = new Date().toISOString().split("T")[0];
+const today=new Date().toISOString().split("T")[0];
 
-const STATUS_STYLE   = {"Pendiente":"bg-gray-100 text-gray-600 border border-gray-300","En progreso":"bg-blue-100 text-blue-700 border border-blue-300","Listo":"bg-green-100 text-green-700 border border-green-400"};
-const PRIORITY_STYLE = {"Alta":"bg-red-100 text-red-700 border border-red-300","Media":"bg-yellow-100 text-yellow-700 border border-yellow-300","Baja":"bg-gray-100 text-gray-500 border border-gray-300"};
-const CATEGORY_STYLE = {"Logística":"bg-blue-100 text-blue-700 border border-blue-300","Decoración":"bg-pink-100 text-pink-700 border border-pink-300","Comunicación":"bg-purple-100 text-purple-700 border border-purple-300","Proveedores":"bg-orange-100 text-orange-700 border border-orange-300","Presupuesto":"bg-green-100 text-green-700 border border-green-300","Coordinación":"bg-teal-100 text-teal-700 border border-teal-300","Otro":"bg-gray-100 text-gray-500 border border-gray-300"};
+const STATUS_STYLE   ={"Pendiente":"bg-gray-100 text-gray-600 border border-gray-300","En progreso":"bg-blue-100 text-blue-700 border border-blue-300","Listo":"bg-green-100 text-green-700 border border-green-400"};
+const PRIORITY_STYLE ={"Alta":"bg-red-100 text-red-700 border border-red-300","Media":"bg-yellow-100 text-yellow-700 border border-yellow-300","Baja":"bg-gray-100 text-gray-500 border border-gray-300"};
+const CATEGORY_STYLE ={"Logística":"bg-blue-100 text-blue-700 border border-blue-300","Decoración":"bg-pink-100 text-pink-700 border border-pink-300","Comunicación":"bg-purple-100 text-purple-700 border border-purple-300","Proveedores":"bg-orange-100 text-orange-700 border border-orange-300","Presupuesto":"bg-green-100 text-green-700 border border-green-300","Coordinación":"bg-teal-100 text-teal-700 border border-teal-300","Otro":"bg-gray-100 text-gray-500 border border-gray-300"};
 
-const EMPTY_TASK      = {name:"",assignees:["Andy"],priority:"Media",status:"Pendiente",deadline:today,category:"Logística",notes:"",progress:0,effort:3,links:[],comments:[],subtasks:[],milestoneId:null};
-const EMPTY_MILESTONE = {name:"",deadline:today,description:"",closed:false};
+const EMPTY_TASK      ={name:"",assignees:["Andy"],priority:"Media",status:"Pendiente",deadline:today,category:"Logística",notes:"",progress:0,effort:3,links:[],comments:[],subtasks:[],milestoneId:null};
+const EMPTY_MILESTONE ={name:"",deadline:today,description:"",closed:false};
 
 function isOverdue(d,s){return s!=="Listo"&&d<today;}
 function daysUntil(d){return Math.ceil((new Date(d)-new Date(today))/(1000*60*60*24));}
 
-// ── SUPABASE HELPERS ───────────────────────────────────────────
 function rowToTask(r){return{id:r.id,name:r.name||"",assignees:Array.isArray(r.assignees)?r.assignees:[],priority:r.priority||"Media",status:r.status||"Pendiente",deadline:r.deadline||today,category:r.category||"Otro",notes:r.notes||"",progress:r.progress||0,effort:r.effort||3,links:Array.isArray(r.links)?r.links:[],comments:Array.isArray(r.comments)?r.comments:[],subtasks:Array.isArray(r.subtasks)?r.subtasks:[],milestoneId:r.milestone_id||null};}
 function taskToRow(t){return{name:t.name,assignees:t.assignees,priority:t.priority,status:t.status,deadline:t.deadline,category:t.category,notes:t.notes,progress:t.progress,effort:t.effort,links:t.links,comments:t.comments,subtasks:t.subtasks,milestone_id:t.milestoneId};}
 function rowToMilestone(r){return{id:r.id,name:r.name||"",deadline:r.deadline||today,description:r.description||"",closed:r.closed||false};}
 function milestoneToRow(m){return{name:m.name,deadline:m.deadline,description:m.description,closed:m.closed};}
 
-// ── EMAILJS ────────────────────────────────────────────────────
-// ── CONTROL DE NOTIFICACIONES (anti-duplicados) ────────────────
-// Usa una variable en memoria con clave por tarea+tipo+fecha
-const _notifSent = {};
-function notifKey(taskId, type) {
-  return `${taskId}_${type}_${today}`;
-}
-function alreadySent(taskId, type) {
-  return !!_notifSent[notifKey(taskId, type)];
-}
-function markSent(taskId, type) {
-  _notifSent[notifKey(taskId, type)] = true;
-}
+// ── Anti-duplicados notificaciones ─────────────────────────────
+const _notifSent={};
+function notifKey(id,type){return `${id}_${type}_${today}`;}
+function alreadySent(id,type){return !!_notifSent[notifKey(id,type)];}
+function markSent(id,type){_notifSent[notifKey(id,type)]=true;}
 
 async function sendEmail(to_email,to_name,subject,message){
-  if(EMAILJS_PUBLIC_KEY==="TU_PUBLIC_KEY"){console.log("EmailJS pendiente → ",to_email,subject);return;}
-  try{await emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,{
-    email: to_email,
-    name:  to_name,
-    title: subject,
-    message,
-  },EMAILJS_PUBLIC_KEY);}
+  if(EMAILJS_PUBLIC_KEY==="TU_PUBLIC_KEY"){console.log("EmailJS pendiente →",to_email,subject);return;}
+  try{await emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,{email:to_email,name:to_name,title:subject,message},EMAILJS_PUBLIC_KEY);}
   catch(e){console.error("EmailJS:",e);}
 }
 async function notifyAssigned(task){
   if(alreadySent(task.id,"assigned"))return;
-  for(const n of task.assignees){
-    const e=TEAM_EMAILS[n];
-    if(e)await sendEmail(e,n,`📋 Nueva tarea: ${task.name}`,`Hola ${n},\n\nSe te asignó "${task.name}".\nPrioridad: ${task.priority} | Deadline: ${task.deadline}\n${task.notes?"\nNotas: "+task.notes:""}\n\nParque Tempisque – Eventos`);
-  }
+  for(const n of task.assignees){const e=TEAM_EMAILS[n];if(e)await sendEmail(e,n,`📋 Nueva tarea: ${task.name}`,`Hola ${n},\n\nSe te asignó "${task.name}".\nPrioridad: ${task.priority} | Deadline: ${task.deadline}\n${task.notes?"\nNotas: "+task.notes:""}\n\nParque Tempisque – Eventos`);}
   markSent(task.id,"assigned");
 }
 async function notifyEdited(task){
   if(alreadySent(task.id,"edited"))return;
-  for(const n of task.assignees){
-    const e=TEAM_EMAILS[n];
-    if(e)await sendEmail(e,n,`✏️ Tarea actualizada: ${task.name}`,`Hola ${n},\n\nLa tarea "${task.name}" fue modificada.\nEstado: ${task.status} | Avance: ${task.progress}% | Deadline: ${task.deadline}\n${task.notes?"\nNotas: "+task.notes:""}\n\nParque Tempisque – Eventos`);
-  }
+  for(const n of task.assignees){const e=TEAM_EMAILS[n];if(e)await sendEmail(e,n,`✏️ Tarea actualizada: ${task.name}`,`Hola ${n},\n\nLa tarea "${task.name}" fue modificada.\nEstado: ${task.status} | Avance: ${task.progress}% | Deadline: ${task.deadline}\n\nParque Tempisque – Eventos`);}
   markSent(task.id,"edited");
 }
 async function notifyMilestoneEdited(m){
   if(alreadySent(m.id,"milestone_edited"))return;
-  for(const n of TEAM){
-    const e=TEAM_EMAILS[n];
-    if(e)await sendEmail(e,n,`🎯 Objetivo actualizado: ${m.name}`,`Hola ${n},\n\nEl objetivo "${m.name}" fue modificado.\nDeadline: ${m.deadline} | Estado: ${m.closed?"Cerrado":"Abierto"}\n${m.description?"\n"+m.description:""}\n\nParque Tempisque – Eventos`);
-  }
+  for(const n of TEAM){const e=TEAM_EMAILS[n];if(e)await sendEmail(e,n,`🎯 Objetivo actualizado: ${m.name}`,`Hola ${n},\n\nEl objetivo "${m.name}" fue modificado.\nDeadline: ${m.deadline} | Estado: ${m.closed?"Cerrado":"Abierto"}\n\nParque Tempisque – Eventos`);}
   markSent(m.id,"milestone_edited");
 }
 async function notifyOverdue(task){
   const type=daysUntil(task.deadline)<0?"overdue":"upcoming";
   if(alreadySent(task.id,type))return;
-  for(const n of task.assignees){
-    const e=TEAM_EMAILS[n]; if(!e)continue;
-    const d=daysUntil(task.deadline);
-    await sendEmail(e,n,d<0?`⚠️ Tarea vencida: ${task.name}`:`🔔 Por vencer: ${task.name}`,`Hola ${n},\n\n${d<0?`"${task.name}" venció hace ${Math.abs(d)} día(s).`:`"${task.name}" vence en ${d} día(s) (${task.deadline}).`}\nEstado: ${task.status}\n\nParque Tempisque – Eventos`);
-  }
+  for(const n of task.assignees){const e=TEAM_EMAILS[n];if(!e)continue;const d=daysUntil(task.deadline);await sendEmail(e,n,d<0?`⚠️ Tarea vencida: ${task.name}`:`🔔 Por vencer: ${task.name}`,`Hola ${n},\n\n${d<0?`"${task.name}" venció hace ${Math.abs(d)} día(s).`:`"${task.name}" vence en ${d} día(s) (${task.deadline}).`}\nEstado: ${task.status}\n\nParque Tempisque – Eventos`);}
   markSent(task.id,type);
 }
 
-// ── COMPONENTES BASE ───────────────────────────────────────────
+// ── Componentes base ───────────────────────────────────────────
 function Badge({label,style}){return <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${style}`}>{label}</span>;}
 function Avatar({name,size=22}){const idx=Math.max(0,TEAM.indexOf(name))%AVATAR_COLORS.length;return <div title={name} style={{width:size,height:size,borderRadius:"50%",background:AVATAR_COLORS[idx],border:"2px solid white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.42,color:"white",fontWeight:700,flexShrink:0}}>{name[0]}</div>;}
 function AvatarGroup({assignees}){
-  if(assignees.length===TEAM.length)return <span style={{fontSize:12,fontWeight:700,padding:"2px 8px",borderRadius:20,background:BLUE_LIGHT,color:BLUE_DARK,border:"1px solid #c7d2fe"}}>🎪 Todos</span>;
+  if(assignees.length===TEAM.length)return <span style={{fontSize:12,fontWeight:700,padding:"2px 8px",borderRadius:20,background:BLUE_LIGHT,color:BLUE_DARK,border:"1px solid #a8d5b5"}}>🎪 Todos</span>;
   return <div style={{display:"flex",alignItems:"center",gap:2}}>{assignees.map((a,i)=><div key={a} style={{marginLeft:i===0?0:-6}}><Avatar name={a}/></div>)}<span style={{fontSize:11,color:"#6b7280",marginLeft:4}}>{assignees.join(", ")}</span></div>;
 }
 function Logo({size=48}){return <img src="https://vr506.com/assets/logoPT.png" width={size} height={size} alt="PT" style={{objectFit:"contain"}}/>;}
@@ -128,7 +98,7 @@ function Toast({msg,type,onDone}){
   return <div style={{position:"fixed",bottom:24,right:24,zIndex:9999,background:cfg[0],color:cfg[1],border:`1px solid ${cfg[1]}33`,borderRadius:12,padding:"12px 20px",fontWeight:700,fontSize:13,boxShadow:"0 4px 16px rgba(0,0,0,0.15)",maxWidth:340}}>{cfg[2]} {msg}</div>;
 }
 
-// ── GRÁFICA ESFUERZO SVG ───────────────────────────────────────
+// ── Gráfica SVG ────────────────────────────────────────────────
 function EsfuerzoChart({tasks}){
   const [tip,setTip]=useState(null);
   const SEGS=["Sin Iniciar","En Curso","Atrasada","Completado"];
@@ -143,23 +113,23 @@ function EsfuerzoChart({tasks}){
     };
   });
   const W=540,H=200,pL=36,pB=28,pT=10,pR=16;
-  const cW=W-pL-pR, cH=H-pB-pT;
+  const cW=W-pL-pR,cH=H-pB-pT;
   const maxV=Math.max(...data.map(d=>SEGS.reduce((a,k)=>a+d[k],0)),1);
   const bW=Math.floor(cW/data.length*0.52);
   const gap=cW/data.length;
   return(
-    <div style={{background:"white",borderRadius:16,padding:"20px 20px 12px",border:"1px solid #c7d2fe",marginBottom:16}}>
+    <div style={{background:"white",borderRadius:16,padding:"20px 20px 12px",border:"1px solid #a8d5b5",marginBottom:16}}>
       <h3 style={{margin:"0 0 12px",fontSize:14,fontWeight:700,color:BLUE_DARK}}>📊 Esfuerzo por persona <span style={{fontSize:11,color:"#9ca3af",fontWeight:400}}>(pts por estado)</span></h3>
       <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",display:"block"}}>
         <defs><filter id="shd"><feDropShadow dx="0" dy="1" stdDeviation="2" floodOpacity="0.12"/></filter></defs>
         {[0,1,2,3,4].map(i=>{const y=pT+(cH/4)*i;return <g key={i}><line x1={pL} x2={W-pR} y1={y} y2={y} stroke="#e2e8f0" strokeWidth="1"/><text x={pL-4} y={y+4} textAnchor="end" fontSize="9" fill="#9ca3af">{Math.round(maxV*(1-i/4))}</text></g>;})}
         {data.map((d,i)=>{
-          const cx=pL+gap*i+gap/2, x=cx-bW/2;
+          const cx=pL+gap*i+gap/2,x=cx-bW/2;
           let cy=pT+cH;
           return(
             <g key={d.name} onMouseEnter={()=>setTip({cx,d})} onMouseLeave={()=>setTip(null)} style={{cursor:"pointer"}}>
               {SEGS.map(seg=>{
-                const h=(d[seg]/maxV)*cH; if(!h)return null;
+                const h=(d[seg]/maxV)*cH;if(!h)return null;
                 cy-=h;
                 const isTop=SEGS.slice(SEGS.indexOf(seg)+1).every(s=>!d[s]);
                 return <rect key={seg} x={x} y={cy} width={bW} height={h} fill={COLORS[seg]} rx={isTop?3:0}/>;
@@ -169,10 +139,10 @@ function EsfuerzoChart({tasks}){
           );
         })}
         {tip&&(()=>{
-          const {cx,d}=tip; const vals=SEGS.filter(s=>d[s]>0);
+          const {cx,d}=tip;const vals=SEGS.filter(s=>d[s]>0);
           const tw=118,th=vals.length*16+22,tx=cx+bW/2+4>W-tw?cx-tw-bW/2-4:cx+bW/2+4,ty=pT+20;
           return <g>
-            <rect x={tx} y={ty} width={tw} height={th} rx="6" fill="white" stroke="#c7d2fe" strokeWidth="1" filter="url(#shd)"/>
+            <rect x={tx} y={ty} width={tw} height={th} rx="6" fill="white" stroke="#a8d5b5" strokeWidth="1" filter="url(#shd)"/>
             <text x={tx+8} y={ty+14} fontSize="11" fontWeight="700" fill={BLUE_DARK}>{d.name}</text>
             {vals.map((s,i)=><g key={s}><rect x={tx+8} y={ty+20+i*16} width={8} height={8} rx="2" fill={COLORS[s]}/><text x={tx+20} y={ty+28+i*16} fontSize="10" fill="#374151">{s}: {d[s]} pts</text></g>)}
           </g>;
@@ -185,10 +155,10 @@ function EsfuerzoChart({tasks}){
   );
 }
 
-// ── MODAL DETALLE ──────────────────────────────────────────────
+// ── Modal detalle tarea ────────────────────────────────────────
 function DetailModal({task,onClose,onUpdate}){
   const [tab,setTab]=useState("info");
-  const [nc,setNc]=useState(""); const [nll,setNll]=useState(""); const [nlu,setNlu]=useState(""); const [ns,setNs]=useState("");
+  const [nc,setNc]=useState("");const [nll,setNll]=useState("");const [nlu,setNlu]=useState("");const [ns,setNs]=useState("");
   const iS={width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:13,marginTop:4};
   const tabs=[{k:"info",l:"ℹ️ Info"},{k:"sub",l:`✅ (${task.subtasks.length})`},{k:"com",l:`💬 (${task.comments.length})`},{k:"lnk",l:`📎 (${task.links.length})`}];
   const upd=onUpdate;
@@ -198,23 +168,23 @@ function DetailModal({task,onClose,onUpdate}){
   function togSub(id){const s=task.subtasks.map(x=>x.id===id?{...x,done:!x.done}:x);const d=s.filter(x=>x.done).length;upd({...task,subtasks:s,progress:s.length>0?Math.round(d/s.length*100):task.progress});}
   return(
     <div style={{position:"fixed",inset:0,zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:16,background:"rgba(0,0,0,0.55)"}}>
-      <div style={{background:"white",borderRadius:16,width:"100%",maxWidth:520,maxHeight:"90vh",overflowY:"auto",border:"2px solid #c7d2fe"}}>
+      <div style={{background:"white",borderRadius:16,width:"100%",maxWidth:520,maxHeight:"90vh",overflowY:"auto",border:"2px solid #a8d5b5"}}>
         <div style={{background:BLUE_DARK,padding:"16px 20px",borderRadius:"14px 14px 0 0"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
             <div>
-              <p style={{margin:0,fontSize:10,fontWeight:700,letterSpacing:2,color:"#a5b4fc",textTransform:"uppercase"}}>Parque Tempisque · Eventos</p>
+              <p style={{margin:0,fontSize:10,fontWeight:700,letterSpacing:2,color:"#7cc47a",textTransform:"uppercase"}}>Parque Tempisque · Eventos</p>
               <h2 style={{margin:"4px 0",color:"white",fontSize:18,fontWeight:800}}>{task.name}</h2>
               <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:4}}>
                 <Badge label={task.status} style={STATUS_STYLE[task.status]}/>
                 <Badge label={task.priority} style={PRIORITY_STYLE[task.priority]}/>
                 <Badge label={task.category} style={CATEGORY_STYLE[task.category]}/>
-                <span style={{fontSize:11,background:"#e0e7ff",color:BLUE_DARK,borderRadius:10,padding:"1px 8px",fontWeight:700}}>⚡ {task.effort} pts</span>
+                <span style={{fontSize:11,background:"#d1fae5",color:BLUE_DARK,borderRadius:10,padding:"1px 8px",fontWeight:700}}>⚡ {task.effort} pts</span>
               </div>
             </div>
             <button onClick={onClose} style={{background:"none",border:"none",color:"white",fontSize:20,cursor:"pointer"}}>✕</button>
           </div>
         </div>
-        <div style={{display:"flex",borderBottom:"1px solid #c7d2fe"}}>
+        <div style={{display:"flex",borderBottom:"1px solid #a8d5b5"}}>
           {tabs.map(t=><button key={t.k} onClick={()=>setTab(t.k)} style={{flex:1,padding:"10px 4px",fontSize:12,fontWeight:700,border:"none",cursor:"pointer",background:tab===t.k?BLUE_LIGHT:"white",color:tab===t.k?BLUE_DARK:"#94a3b8",borderBottom:tab===t.k?`2px solid ${BLUE_MID}`:"2px solid transparent"}}>{t.l}</button>)}
         </div>
         <div style={{padding:20}}>
@@ -272,7 +242,7 @@ function DetailModal({task,onClose,onUpdate}){
   );
 }
 
-// ── MILESTONES PANEL ───────────────────────────────────────────
+// ── Milestones Panel ───────────────────────────────────────────
 function MilestonesPanel({milestones,tasks,onAdd,onToggle,onDelete,onEdit}){
   const [form,setForm]=useState(EMPTY_MILESTONE);
   const [show,setShow]=useState(false);
@@ -283,30 +253,28 @@ function MilestonesPanel({milestones,tasks,onAdd,onToggle,onDelete,onEdit}){
   function handleAdd(){
     if(!form.name.trim())return;
     if(editId!==null){onEdit({...form,id:editId});setEditId(null);}
-    else onAdd(form);
+    else{onAdd(form);}
     setForm(EMPTY_MILESTONE);setShow(false);
   }
   function startEdit(m){setForm({name:m.name,deadline:m.deadline,description:m.description,closed:m.closed});setEditId(m.id);setShow(true);}
   function cancelForm(){setShow(false);setEditId(null);setForm(EMPTY_MILESTONE);}
 
   const sorted=[...milestones].sort((a,b)=>{
-    const d=new Date(a.deadline)-new Date(b.deadline);
-    return sortAsc?d:-d;
+    const diff=new Date(a.deadline)-new Date(b.deadline);
+    return sortAsc?diff:-diff;
   });
 
   return(
-    <div style={{background:"white",borderRadius:16,padding:20,border:"1px solid #c7d2fe",marginBottom:16}}>
+    <div style={{background:"white",borderRadius:16,padding:20,border:"1px solid #a8d5b5",marginBottom:16}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <h3 style={{margin:0,fontSize:14,fontWeight:700,color:BLUE_DARK}}>🎯 Proyectos / Objetivos</h3>
-          <button onClick={()=>setSortAsc(s=>!s)} title="Ordenar por fecha"
-            style={{background:BLUE_LIGHT,color:BLUE_DARK,border:`1px solid #c7d2fe`,borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+          <button onClick={()=>setSortAsc(s=>!s)} style={{background:BLUE_LIGHT,color:BLUE_DARK,border:"1px solid #a8d5b5",borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
             📅 {sortAsc?"↑ Asc":"↓ Desc"}
           </button>
         </div>
         <button onClick={()=>{setEditId(null);setForm(EMPTY_MILESTONE);setShow(s=>!s);}} style={{background:BLUE_MID,color:"white",border:"none",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Nuevo</button>
       </div>
-
       {show&&<div style={{background:BLUE_LIGHT,borderRadius:12,padding:16,marginBottom:12}}>
         <p style={{margin:"0 0 8px",fontSize:12,fontWeight:700,color:BLUE_DARK}}>{editId?"✏️ Editar objetivo":"➕ Nuevo objetivo"}</p>
         <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Nombre del objetivo *" style={iS}/>
@@ -317,7 +285,6 @@ function MilestonesPanel({milestones,tasks,onAdd,onToggle,onDelete,onEdit}){
           <button onClick={cancelForm} style={{background:"white",color:"#6b7280",border:"1px solid #e5e7eb",borderRadius:8,padding:"7px 14px",fontSize:12,cursor:"pointer"}}>Cancelar</button>
         </div>
       </div>}
-
       {sorted.length===0&&<p style={{textAlign:"center",color:"#9ca3af",fontSize:13,padding:"12px 0"}}>No hay objetivos definidos aún</p>}
       {sorted.map(m=>{
         const mt=tasks.filter(t=>String(t.milestoneId)===String(m.id));
@@ -325,7 +292,7 @@ function MilestonesPanel({milestones,tasks,onAdd,onToggle,onDelete,onEdit}){
         const pct=mt.length?Math.round(done/mt.length*100):0;
         const avg=mt.length?Math.round(mt.reduce((a,t)=>a+t.progress,0)/mt.length):0;
         return(
-          <div key={m.id} style={{border:`1.5px solid ${m.closed?"#bbf7d0":"#c7d2fe"}`,borderRadius:12,padding:"12px 16px",marginBottom:8,background:m.closed?"#f0fdf4":BLUE_LIGHT}}>
+          <div key={m.id} style={{border:`1.5px solid ${m.closed?"#bbf7d0":"#a8d5b5"}`,borderRadius:12,padding:"12px 16px",marginBottom:8,background:m.closed?"#f0fdf4":BLUE_LIGHT}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
               <div style={{flex:1}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
@@ -340,7 +307,7 @@ function MilestonesPanel({milestones,tasks,onAdd,onToggle,onDelete,onEdit}){
                 </div>
               </div>
               <div style={{display:"flex",gap:6,flexShrink:0}}>
-                <button onClick={()=>startEdit(m)} style={{background:"#e0e7ff",color:BLUE_DARK,border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✏️ Editar</button>
+                <button onClick={()=>startEdit(m)} style={{background:"#d1fae5",color:BLUE_DARK,border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✏️ Editar</button>
                 <button onClick={()=>onToggle(m)} style={{background:m.closed?"#fef9c3":"#dcfce7",color:m.closed?"#854d0e":"#15803d",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{m.closed?"Reabrir":"✓ Cerrar"}</button>
                 <button onClick={()=>onDelete(m.id)} style={{background:"#fee2e2",color:"#991b1b",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✕</button>
               </div>
@@ -382,7 +349,7 @@ function App(){
         sb.from("eventos_tasks").select("*").order("id",{ascending:true}),
         sb.from("eventos_milestones").select("*").order("id",{ascending:true}),
       ]);
-      if(te)setDbError("Error: "+te.message+". Creá las tablas eventos_tasks y eventos_milestones en Supabase.");
+      if(te)setDbError("Error: "+te.message);
       else setTasks(td.map(rowToTask));
       if(!me)setMilestones(md.map(rowToMilestone));
       setLoading(false);
@@ -392,7 +359,7 @@ function App(){
 
   async function saveTask(){
     if(!form.name.trim()){showT("El nombre es obligatorio","warn");return;}
-    if(saving)return; setSaving(true);
+    if(saving)return;setSaving(true);
     try{
       if(editId!==null){
         const u={...form,id:editId};
@@ -401,43 +368,56 @@ function App(){
         setTasks(ts=>ts.map(t=>t.id===editId?u:t));
         if(detailTask?.id===editId)setDetailTask(u);
         await notifyEdited(u);
-        showT("Tarea actualizada ✅"); setEditId(null);
+        showT("Tarea actualizada ✅");setEditId(null);
       } else {
         const payload={id:Date.now(),...taskToRow(form)};
         const {data,error}=await sb.from("eventos_tasks").insert(payload).select().single();
         if(error)throw error;
-        const nt=rowToTask(data); setTasks(ts=>[...ts,nt]);
+        const nt=rowToTask(data);setTasks(ts=>[...ts,nt]);
         await notifyAssigned(nt);
-        showT("Tarea creada ✅"+(EMAILJS_PUBLIC_KEY!=="TU_PUBLIC_KEY"?" · Notificaciones enviadas":""));
+        showT("Tarea creada ✅");
       }
-      setForm(EMPTY_TASK); setShowForm(false);
+      setForm(EMPTY_TASK);setShowForm(false);
     }catch(err){showT("Error: "+(err.message||JSON.stringify(err)),"err");}
     finally{setSaving(false);}
   }
 
   async function updateTask(u){
-    setTasks(ts=>ts.map(t=>t.id===u.id?u:t)); setDetailTask(u);
+    setTasks(ts=>ts.map(t=>t.id===u.id?u:t));setDetailTask(u);
     const {error}=await sb.from("eventos_tasks").upsert({id:u.id,...taskToRow(u)},{onConflict:"id"});
-    if(error){showT("Error al guardar","err");return;} showT("Guardado ✅");
+    if(error){showT("Error al guardar","err");return;}
+    showT("Guardado ✅");
   }
-  async function cycleStatus(id){const t=tasks.find(x=>x.id===id);if(t)await updateTask({...t,status:STATUSES[(STATUSES.indexOf(t.status)+1)%STATUSES.length]});}
+
+  async function cycleStatus(id){
+    const t=tasks.find(x=>x.id===id);
+    if(t)await updateTask({...t,status:STATUSES[(STATUSES.indexOf(t.status)+1)%STATUSES.length]});
+  }
+
   async function deleteTask(id){
     const {error}=await sb.from("eventos_tasks").delete().eq("id",id);
     if(error){showT("Error al eliminar","err");return;}
-    setTasks(ts=>ts.filter(t=>t.id!==id)); if(detailTask?.id===id)setDetailTask(null); showT("Eliminado");
+    setTasks(ts=>ts.filter(t=>t.id!==id));
+    if(detailTask?.id===id)setDetailTask(null);
+    showT("Eliminado");
   }
+
   async function addMilestone(m){
     const payload={id:Date.now(),...milestoneToRow(m)};
     const {data,error}=await sb.from("eventos_milestones").insert(payload).select().single();
     if(error){showT("Error: "+error.message,"err");return;}
-    setMilestones(ms=>[...ms,rowToMilestone(data)]); showT("Objetivo creado ✅");
+    setMilestones(ms=>[...ms,rowToMilestone(data)]);showT("Objetivo creado ✅");
   }
+
   async function editMilestone(m){
     const {error}=await sb.from("eventos_milestones").update(milestoneToRow(m)).eq("id",m.id);
     if(error){showT("Error al editar","err");return;}
     setMilestones(ms=>ms.map(x=>x.id===m.id?m:x));
+    await notifyMilestoneEdited(m);
     showT("Objetivo actualizado ✅");
   }
+
+  async function toggleMilestone(m){
     const u={...m,closed:!m.closed};
     const {error}=await sb.from("eventos_milestones").update({closed:u.closed}).eq("id",m.id);
     if(error){showT("Error","err");return;}
@@ -445,10 +425,13 @@ function App(){
     await notifyMilestoneEdited(u);
     showT(u.closed?"Objetivo cerrado ✅":"Objetivo reabierto");
   }
+
   async function deleteMilestone(id){
     const {error}=await sb.from("eventos_milestones").delete().eq("id",id);
     if(error){showT("Error","err");return;}
-    setMilestones(ms=>ms.filter(m=>m.id!==id)); setTasks(ts=>ts.map(t=>t.milestoneId===id?{...t,milestoneId:null}:t)); showT("Eliminado");
+    setMilestones(ms=>ms.filter(m=>m.id!==id));
+    setTasks(ts=>ts.map(t=>t.milestoneId===id?{...t,milestoneId:null}:t));
+    showT("Eliminado");
   }
 
   useEffect(()=>{
@@ -456,7 +439,7 @@ function App(){
     tasks.forEach(t=>{if(t.status!=="Listo"&&daysUntil(t.deadline)<=alertDays)notifyOverdue(t);});
   },[alertDays]);
 
-  function startEdit(t){setForm({...t, milestoneId: t.milestoneId ? String(t.milestoneId) : null});setEditId(t.id);setShowForm(true);}
+  function startEdit(t){setForm({...t,milestoneId:t.milestoneId?String(t.milestoneId):null});setEditId(t.id);setShowForm(true);}
   function togAssignee(n){setForm(f=>{const has=f.assignees.includes(n);if(has&&f.assignees.length===1)return f;return{...f,assignees:has?f.assignees.filter(a=>a!==n):[...f.assignees,n]};});}
   function togAll(){setForm(f=>f.assignees.length===TEAM.length?{...f,assignees:[TEAM[0]]}:{...f,assignees:[...TEAM]});}
 
@@ -480,9 +463,9 @@ function App(){
           <div style={{display:"flex",alignItems:"center",gap:14}}>
             <Logo size={72}/>
             <div>
-              <p style={{margin:0,fontSize:10,fontWeight:800,letterSpacing:3,color:"#a5b4fc",textTransform:"uppercase"}}>Parque Tempisque</p>
+              <p style={{margin:0,fontSize:10,fontWeight:800,letterSpacing:3,color:"#7cc47a",textTransform:"uppercase"}}>Parque Tempisque</p>
               <h1 style={{margin:0,fontSize:20,fontWeight:800,color:"white"}}>Dashboard Eventos</h1>
-              <p style={{margin:0,fontSize:11,color:"#c7d2fe"}}>Control de tareas y objetivos</p>
+              <p style={{margin:0,fontSize:11,color:"#a8d5b5"}}>Control de tareas y objetivos</p>
             </div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
@@ -494,7 +477,7 @@ function App(){
           </div>
         </div>
       </div>
-      <div style={{height:4,background:`linear-gradient(90deg,#1a5c2e,#7cc47a,#1a5c2e)`}}/>
+      <div style={{height:4,background:"linear-gradient(90deg,#1a5c2e,#7cc47a,#1a5c2e)"}}/>
 
       <div style={{maxWidth:1100,margin:"0 auto",padding:"20px 16px"}}>
         {dbError&&<div style={{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:12,padding:"12px 16px",marginBottom:16,color:"#991b1b",fontSize:13}}>❌ {dbError}</div>}
@@ -520,14 +503,13 @@ function App(){
           {fCat!=="Todas"&&<button onClick={()=>setFCat("Todas")} style={{fontSize:12,color:BLUE_MID,background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}}>limpiar</button>}
         </div>}
 
-        {/* ── TABLA ── */}
         {view==="tabla"&&<>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:12}}>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               {[{v:fStatus,s:setFStatus,o:["Todos",...STATUSES]},{v:fAssignee,s:setFAssignee,o:["Todos",...TEAM]},{v:fCat,s:setFCat,o:["Todas",...CATEGORIES]}].map((f,i)=>(
-                <select key={i} value={f.v} onChange={e=>f.s(e.target.value)} style={{fontSize:12,border:"1px solid #c7d2fe",borderRadius:8,padding:"6px 10px",background:"white"}}>{f.o.map(o=><option key={o}>{o}</option>)}</select>
+                <select key={i} value={f.v} onChange={e=>f.s(e.target.value)} style={{fontSize:12,border:"1px solid #a8d5b5",borderRadius:8,padding:"6px 10px",background:"white"}}>{f.o.map(o=><option key={o}>{o}</option>)}</select>
               ))}
-              <select value={fMile} onChange={e=>setFMile(e.target.value)} style={{fontSize:12,border:"1px solid #c7d2fe",borderRadius:8,padding:"6px 10px",background:"white"}}>
+              <select value={fMile} onChange={e=>setFMile(e.target.value)} style={{fontSize:12,border:"1px solid #a8d5b5",borderRadius:8,padding:"6px 10px",background:"white"}}>
                 <option value="Todos">Todos los objetivos</option>
                 <option value="Sin objetivo">Sin objetivo</option>
                 {milestones.map(m=><option key={m.id} value={String(m.id)}>{m.name}</option>)}
@@ -536,7 +518,7 @@ function App(){
             <button onClick={()=>{setForm(EMPTY_TASK);setEditId(null);setShowForm(true);}} style={{background:BLUE_MID,color:"white",border:"none",borderRadius:8,padding:"8px 18px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Nueva tarea</button>
           </div>
 
-          {showForm&&<div style={{background:"white",border:"1px solid #c7d2fe",borderRadius:16,padding:20,marginBottom:16}}>
+          {showForm&&<div style={{background:"white",border:"1px solid #a8d5b5",borderRadius:16,padding:20,marginBottom:16}}>
             <h3 style={{margin:"0 0 14px",color:BLUE_DARK}}>{editId?"✏️ Editar tarea":"➕ Nueva tarea"}</h3>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <div style={{gridColumn:"1/-1"}}>
@@ -546,8 +528,8 @@ function App(){
               <div style={{gridColumn:"1/-1"}}>
                 <label style={{fontSize:11,color:"#6b7280",fontWeight:600,display:"block",marginBottom:8}}>Participantes</label>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                  <button onClick={togAll} style={{background:form.assignees.length===TEAM.length?BLUE_MID:BLUE_LIGHT,color:form.assignees.length===TEAM.length?"white":BLUE_DARK,border:"1px solid #c7d2fe",borderRadius:20,padding:"5px 14px",fontSize:12,fontWeight:700,cursor:"pointer"}}>🎪 Todo el equipo</button>
-                  {TEAM.map(n=>{const sel=form.assignees.includes(n);return<button key={n} onClick={()=>togAssignee(n)} style={{background:sel?BLUE_MID:"white",color:sel?"white":BLUE_DARK,border:`1px solid ${sel?BLUE_MID:"#c7d2fe"}`,borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Avatar name={n} size={16}/>{n}</button>;})}
+                  <button onClick={togAll} style={{background:form.assignees.length===TEAM.length?BLUE_MID:BLUE_LIGHT,color:form.assignees.length===TEAM.length?"white":BLUE_DARK,border:"1px solid #a8d5b5",borderRadius:20,padding:"5px 14px",fontSize:12,fontWeight:700,cursor:"pointer"}}>🎪 Todo el equipo</button>
+                  {TEAM.map(n=>{const sel=form.assignees.includes(n);return<button key={n} onClick={()=>togAssignee(n)} style={{background:sel?BLUE_MID:"white",color:sel?"white":BLUE_DARK,border:`1px solid ${sel?BLUE_MID:"#a8d5b5"}`,borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Avatar name={n} size={16}/>{n}</button>;})}
                 </div>
               </div>
               {[{l:"Categoría",k:"category",o:CATEGORIES},{l:"Prioridad",k:"priority",o:PRIORITIES},{l:"Estado",k:"status",o:STATUSES}].map(f=>(
@@ -555,7 +537,7 @@ function App(){
               ))}
               <div><label style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Deadline</label><input type="date" value={form.deadline} onChange={e=>setForm(f=>({...f,deadline:e.target.value}))} style={S.inp}/></div>
               <div><label style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Objetivo</label>
-              <select value={form.milestoneId||""} onChange={e=>setForm(f=>({...f,milestoneId:e.target.value||null}))} style={S.sel}>
+                <select value={form.milestoneId||""} onChange={e=>setForm(f=>({...f,milestoneId:e.target.value||null}))} style={S.sel}>
                   <option value="">Sin objetivo</option>
                   {milestones.filter(m=>!m.closed).map(m=><option key={m.id} value={String(m.id)}>{m.name}</option>)}
                 </select>
@@ -572,7 +554,7 @@ function App(){
             </div>
           </div>}
 
-          <div style={{background:"white",borderRadius:16,overflow:"hidden",border:"1px solid #c7d2fe",boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
+          <div style={{background:"white",borderRadius:16,overflow:"hidden",border:"1px solid #a8d5b5",boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
               <thead><tr style={{background:BLUE_DARK,color:"white"}}>
                 {["Tarea","Objetivo","Participantes","Categoría","Prioridad","Estado","Esfuerzo","Avance","Deadline",""].map(h=><th key={h} style={{textAlign:"left",padding:"10px 12px",fontSize:10,fontWeight:700,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}
@@ -581,18 +563,18 @@ function App(){
                 {filtered.length===0&&<tr><td colSpan={10} style={{textAlign:"center",color:"#9ca3af",padding:32}}>No hay tareas con estos filtros</td></tr>}
                 {filtered.map((t,i)=>{
                   const ms=milestones.find(m=>String(m.id)===String(t.milestoneId));
-                  return <tr key={t.id} style={{background:i%2===0?"white":"#f5f3ff",borderBottom:"1px solid #e0e7ff"}}>
+                  return <tr key={t.id} style={{background:i%2===0?"white":"#f4fbf6",borderBottom:"1px solid #e8f5ee"}}>
                     <td style={{padding:"10px 12px"}}>
                       <div style={{fontWeight:600,color:"#1f2937"}}>{t.name}</div>
                       {t.subtasks.length>0&&<div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>{t.subtasks.filter(s=>s.done).length}/{t.subtasks.length} subtareas</div>}
                       {isOverdue(t.deadline,t.status)&&<span style={{fontSize:11,color:"#ef4444",fontWeight:700}}>⚠️ Vencido</span>}
                     </td>
-                    <td style={{padding:"10px 12px"}}>{ms?<span style={{fontSize:11,background:"#e0e7ff",color:BLUE_DARK,borderRadius:8,padding:"2px 8px",fontWeight:700}}>🎯 {ms.name}</span>:<span style={{fontSize:11,color:"#d1d5db"}}>—</span>}</td>
+                    <td style={{padding:"10px 12px"}}>{ms?<span style={{fontSize:11,background:"#d1fae5",color:BLUE_DARK,borderRadius:8,padding:"2px 8px",fontWeight:700}}>🎯 {ms.name}</span>:<span style={{fontSize:11,color:"#d1d5db"}}>—</span>}</td>
                     <td style={{padding:"10px 12px"}}><AvatarGroup assignees={t.assignees}/></td>
                     <td style={{padding:"10px 12px"}}><Badge label={t.category} style={CATEGORY_STYLE[t.category]}/></td>
                     <td style={{padding:"10px 12px"}}><Badge label={t.priority} style={PRIORITY_STYLE[t.priority]}/></td>
                     <td style={{padding:"10px 12px"}}><button onClick={()=>cycleStatus(t.id)} style={{background:"none",border:"none",cursor:"pointer",padding:0}}><Badge label={t.status} style={STATUS_STYLE[t.status]}/></button></td>
-                    <td style={{padding:"10px 12px",textAlign:"center"}}><span style={{fontSize:12,fontWeight:700,background:"#e0e7ff",color:BLUE_DARK,borderRadius:8,padding:"2px 8px"}}>⚡{t.effort}</span></td>
+                    <td style={{padding:"10px 12px",textAlign:"center"}}><span style={{fontSize:12,fontWeight:700,background:"#d1fae5",color:BLUE_DARK,borderRadius:8,padding:"2px 8px"}}>⚡{t.effort}</span></td>
                     <td style={{padding:"10px 12px"}}>
                       <div style={{width:72}}>
                         <div style={{fontSize:11,color:BLUE_DARK,marginBottom:2,fontWeight:600}}>{t.progress}%</div>
@@ -618,8 +600,8 @@ function App(){
         {view==="esfuerzo"&&<EsfuerzoChart tasks={tasks}/>}
         {view==="milestones"&&<MilestonesPanel milestones={milestones} tasks={tasks} onAdd={addMilestone} onToggle={toggleMilestone} onDelete={deleteMilestone} onEdit={editMilestone}/>}
 
-        {view==="resumen"&&<div style={{background:"white",borderRadius:16,padding:24,border:"1px solid #c7d2fe"}}>
-          <div style={{display:"flex",alignItems:"center",gap:16,borderBottom:"1px solid #c7d2fe",paddingBottom:16,marginBottom:20}}>
+        {view==="resumen"&&<div style={{background:"white",borderRadius:16,padding:24,border:"1px solid #a8d5b5"}}>
+          <div style={{display:"flex",alignItems:"center",gap:16,borderBottom:"1px solid #a8d5b5",paddingBottom:16,marginBottom:20}}>
             <Logo size={52}/>
             <div>
               <h2 style={{margin:0,color:BLUE_DARK,fontSize:20,fontWeight:800}}>Reporte Departamento Eventos</h2>
@@ -629,7 +611,7 @@ function App(){
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:12,marginBottom:20}}>
             {[{l:"Total",v:stats.total,c:BLUE_DARK},{l:"Pendientes",v:stats.pendiente,c:"#64748b"},{l:"En progreso",v:stats.progreso,c:"#2563eb"},{l:"Completados",v:stats.listo,c:"#059669"},{l:"Avance prom.",v:`${stats.avgProgress}%`,c:"#7c3aed"}].map(x=>(
-              <div key={x.l} style={{border:"1px solid #c7d2fe",borderRadius:12,padding:"12px 8px",textAlign:"center"}}>
+              <div key={x.l} style={{border:"1px solid #a8d5b5",borderRadius:12,padding:"12px 8px",textAlign:"center"}}>
                 <div style={{fontSize:24,fontWeight:800,color:x.c}}>{x.v}</div>
                 <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>{x.l}</div>
               </div>
@@ -638,7 +620,7 @@ function App(){
           {milestones.length>0&&<div style={{marginBottom:16}}>
             <h3 style={{fontSize:13,fontWeight:700,color:BLUE_DARK,marginBottom:8}}>🎯 Estado de objetivos</h3>
             <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-              {milestones.map(m=>{const mt=tasks.filter(t=>String(t.milestoneId)===String(m.id));const pct=mt.length?Math.round(mt.filter(t=>t.status==="Listo").length/mt.length*100):0;return <span key={m.id} style={{fontSize:12,fontWeight:700,padding:"4px 12px",borderRadius:20,background:m.closed?"#dcfce7":BLUE_LIGHT,color:m.closed?"#15803d":BLUE_DARK,border:`1px solid ${m.closed?"#86efac":"#c7d2fe"}`}}>{m.closed?"✅ ":""}{m.name} · {pct}%</span>;})}
+              {milestones.map(m=>{const mt=tasks.filter(t=>String(t.milestoneId)===String(m.id));const pct=mt.length?Math.round(mt.filter(t=>t.status==="Listo").length/mt.length*100):0;return <span key={m.id} style={{fontSize:12,fontWeight:700,padding:"4px 12px",borderRadius:20,background:m.closed?"#dcfce7":BLUE_LIGHT,color:m.closed?"#15803d":BLUE_DARK,border:`1px solid ${m.closed?"#86efac":"#a8d5b5"}`}}>{m.closed?"✅ ":""}{m.name} · {pct}%</span>;})}
             </div>
           </div>}
           {stats.vencidos>0&&<div style={{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:12,padding:"10px 16px",marginBottom:16,color:"#991b1b",fontSize:13}}>⚠️ <b>{stats.vencidos}</b> tarea(s) vencida(s)</div>}
@@ -657,12 +639,12 @@ function App(){
                     <Badge label={t.category} style={CATEGORY_STYLE[t.category]}/>
                     <Badge label={t.priority} style={PRIORITY_STYLE[t.priority]}/>
                     <Badge label={t.status} style={STATUS_STYLE[t.status]}/>
-                    <span style={{fontSize:11,background:"#e0e7ff",color:BLUE_DARK,borderRadius:8,padding:"1px 6px",fontWeight:700}}>⚡{t.effort}</span>
+                    <span style={{fontSize:11,background:"#d1fae5",color:BLUE_DARK,borderRadius:8,padding:"1px 6px",fontWeight:700}}>⚡{t.effort}</span>
                     <span style={{fontSize:11,color:"#9ca3af"}}>{t.deadline}</span>
                   </div>
                 </div>
                 <div style={{marginTop:8}}>
-                  <div style={{background:"#e0e7ff",borderRadius:4,height:6}}><div style={{height:6,borderRadius:4,background:t.progress===100?"#059669":t.progress>=50?BLUE_MID:"#f59e0b",width:`${t.progress}%`}}/></div>
+                  <div style={{background:"#e8f5ee",borderRadius:4,height:6}}><div style={{height:6,borderRadius:4,background:t.progress===100?"#059669":t.progress>=50?BLUE_MID:"#f59e0b",width:`${t.progress}%`}}/></div>
                   <p style={{textAlign:"right",fontSize:11,color:BLUE_MID,margin:"3px 0 0"}}>{t.progress}%</p>
                 </div>
               </div>)}
