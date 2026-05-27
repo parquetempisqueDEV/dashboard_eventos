@@ -27,8 +27,8 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const ALLOWED_DOMAIN = "@parquetempisque.com";
 
-const TEAM        = ["Andy","Marianela","Adrián","Tamara","Abel"];
-const TEAM_EMAILS = {"Andy":"arojas@parquetempisque.com","Abel":"acamposp@parquetempisque.com","Marianela":"msanchez@parquetempisque.com","Adrián":"agurierrez@parquetempisque.com","Tamara":"tmunoz@parquetempisque.com"};
+const TEAM        = ["Abel","Adrián","Andy","Fernanda","Marianela","Tamara"];
+const TEAM_EMAILS = {"Abel":"acamposp@parquetempisque.com","Adrián":"agurierrez@parquetempisque.com","Andy":"arojas@parquetempisque.com","Fernanda":"fmendez@parquetempisque.com","Marianela":"msanchez@parquetempisque.com","Tamara":"tmunoz@parquetempisque.com"};
 // Reverse lookup: email → nombre
 const EMAIL_TO_NAME = Object.fromEntries(Object.entries(TEAM_EMAILS).map(([n,e])=>[e.toLowerCase(),n]));
 function nameFromEmail(email){if(!email)return null;return EMAIL_TO_NAME[email.toLowerCase()]||email.split("@")[0];}
@@ -46,7 +46,7 @@ const STATUS_STYLE   ={"Pendiente":"bg-gray-100 text-gray-600 border border-gray
 const PRIORITY_STYLE ={"Alta":"bg-red-100 text-red-700 border border-red-300","Media":"bg-yellow-100 text-yellow-700 border border-yellow-300","Baja":"bg-gray-100 text-gray-500 border border-gray-300"};
 const CATEGORY_STYLE ={"Logística":"bg-blue-100 text-blue-700 border border-blue-300","Decoración":"bg-pink-100 text-pink-700 border border-pink-300","Comunicación":"bg-purple-100 text-purple-700 border border-purple-300","Proveedores":"bg-orange-100 text-orange-700 border border-orange-300","Presupuesto":"bg-green-100 text-green-700 border border-green-300","Coordinación":"bg-teal-100 text-teal-700 border border-teal-300","Otro":"bg-gray-100 text-gray-500 border border-gray-300"};
 
-const EMPTY_TASK      ={name:"",assignees:["Andy"],priority:"Media",status:"Pendiente",deadline:today,category:"Logística",notes:"",progress:0,effort:3,links:[],comments:[],subtasks:[],milestoneId:null,createdBy:null};
+const EMPTY_TASK      ={name:"",assignees:["Abel"],priority:"Media",status:"Pendiente",deadline:today,category:"Logística",notes:"",progress:0,effort:3,links:[],comments:[],subtasks:[],milestoneId:null,createdBy:null};
 const EMPTY_MILESTONE ={name:"",deadline:today,description:"",closed:false};
 
 function isOverdue(d,s){return s!=="Listo"&&d<today;}
@@ -276,7 +276,7 @@ function EsfuerzoChart({tasks}){
       "Completado": mine.filter(t=>t.status==="Listo").reduce((a,t)=>a+t.effort,0),
     };
   });
-  const W=540,H=200,pL=36,pB=28,pT=10,pR=16;
+  const W=620,H=200,pL=36,pB=28,pT=10,pR=16;
   const cW=W-pL-pR,cH=H-pB-pT;
   const maxV=Math.max(...data.map(d=>SEGS.reduce((a,k)=>a+d[k],0)),1);
   const bW=Math.floor(cW/data.length*0.52);
@@ -507,6 +507,7 @@ function App(){
   const [alertDays,setAlertDays]=useState(3);
   const [dbError,setDbError]=useState(null);
   const [userMenuOpen,setUserMenuOpen]=useState(false);
+  const [showCompleted,setShowCompleted]=useState(false);
 
   // Usuario actual derivado de la sesión
   const currentUser = useMemo(()=>{
@@ -646,7 +647,11 @@ function App(){
   const stats=useMemo(()=>({total:tasks.length,pendiente:tasks.filter(t=>t.status==="Pendiente").length,progreso:tasks.filter(t=>t.status==="En progreso").length,listo:tasks.filter(t=>t.status==="Listo").length,vencidos:tasks.filter(t=>isOverdue(t.deadline,t.status)).length,avgProgress:tasks.length?Math.round(tasks.reduce((a,t)=>a+t.progress,0)/tasks.length):0}),[tasks]);
   const alerts=useMemo(()=>tasks.filter(t=>t.status!=="Listo"&&!isOverdue(t.deadline,t.status)&&daysUntil(t.deadline)<=alertDays),[tasks,alertDays]);
   const catStats=useMemo(()=>CATEGORIES.map(c=>({cat:c,count:tasks.filter(t=>t.category===c).length})).filter(x=>x.count>0),[tasks]);
-  const filtered=useMemo(()=>tasks.filter(t=>(fStatus==="Todos"||t.status===fStatus)&&(fAssignee==="Todos"||t.assignees.includes(fAssignee))&&(fCat==="Todas"||t.category===fCat)&&(fMile==="Todos"||(fMile==="Sin objetivo"&&!t.milestoneId)||String(t.milestoneId)===fMile)),[tasks,fStatus,fAssignee,fCat,fMile]);
+  const filtered=useMemo(()=>tasks.filter(t=>{
+    // Si NO está activo "mostrar resueltas" y la tarea está Listo → ocultar (excepto si el filtro de estado pide explícitamente Listo)
+    if(!showCompleted&&t.status==="Listo"&&fStatus!=="Listo")return false;
+    return (fStatus==="Todos"||t.status===fStatus)&&(fAssignee==="Todos"||t.assignees.includes(fAssignee))&&(fCat==="Todas"||t.category===fCat)&&(fMile==="Todos"||(fMile==="Sin objetivo"&&!t.milestoneId)||String(t.milestoneId)===fMile);
+  }),[tasks,fStatus,fAssignee,fCat,fMile,showCompleted]);
 
   const S={inp:{width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:13,marginTop:4},sel:{width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:13,marginTop:4}};
   const VIEWS=[{k:"tabla",l:"📋 Tabla"},{k:"esfuerzo",l:"📊 Esfuerzo"},{k:"milestones",l:"🎯 Objetivos"},{k:"resumen",l:"📄 Resumen"}];
@@ -739,6 +744,23 @@ function App(){
               </select>
             </div>
             <button onClick={()=>{setForm(EMPTY_TASK);setEditId(null);setShowForm(true);}} style={{background:BLUE_MID,color:"white",border:"none",borderRadius:8,padding:"8px 18px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Nueva tarea</button>
+          </div>
+
+          {/* ── Toggle tareas resueltas ─────────────────────── */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,padding:"8px 12px",background:showCompleted?"#dcfce7":"white",border:`1px solid ${showCompleted?"#86efac":"#a8d5b5"}`,borderRadius:10,transition:"all 0.2s"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:13,fontWeight:700,color:showCompleted?"#15803d":BLUE_DARK}}>
+                {showCompleted?"✅ Mostrando todas las tareas":"📋 Tareas activas"}
+              </span>
+              <span style={{fontSize:11,color:"#6b7280"}}>
+                {showCompleted
+                  ? `(incluye ${stats.listo} resuelta${stats.listo!==1?"s":""})`
+                  : stats.listo>0?`${stats.listo} tarea${stats.listo!==1?"s":""} resuelta${stats.listo!==1?"s":""} oculta${stats.listo!==1?"s":""}`:"sin tareas resueltas"}
+              </span>
+            </div>
+            <button onClick={()=>setShowCompleted(s=>!s)} style={{background:showCompleted?"white":BLUE_MID,color:showCompleted?BLUE_DARK:"white",border:`1px solid ${showCompleted?"#a8d5b5":BLUE_MID}`,borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
+              {showCompleted?"👁️ Ocultar resueltas":`✅ Ver tareas resueltas${stats.listo>0?` (${stats.listo})`:""}`}
+            </button>
           </div>
 
           {showForm&&<div style={{background:"white",border:"1px solid #a8d5b5",borderRadius:16,padding:20,marginBottom:16}}>
