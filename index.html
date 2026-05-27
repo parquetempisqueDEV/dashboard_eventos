@@ -648,7 +648,9 @@ function App(){
   const alerts=useMemo(()=>tasks.filter(t=>t.status!=="Listo"&&!isOverdue(t.deadline,t.status)&&daysUntil(t.deadline)<=alertDays),[tasks,alertDays]);
   const catStats=useMemo(()=>CATEGORIES.map(c=>({cat:c,count:tasks.filter(t=>t.category===c).length})).filter(x=>x.count>0),[tasks]);
   const filtered=useMemo(()=>tasks.filter(t=>{
-    // Si NO está activo "mostrar resueltas" y la tarea está Listo → ocultar (excepto si el filtro de estado pide explícitamente Listo)
+    // Modo "Ver tareas resueltas": mostrar SOLO las Listo
+    if(showCompleted&&t.status!=="Listo")return false;
+    // Modo normal: ocultar las Listo (excepto si el filtro de estado pide Listo)
     if(!showCompleted&&t.status==="Listo"&&fStatus!=="Listo")return false;
     return (fStatus==="Todos"||t.status===fStatus)&&(fAssignee==="Todos"||t.assignees.includes(fAssignee))&&(fCat==="Todas"||t.category===fCat)&&(fMile==="Todos"||(fMile==="Sin objetivo"&&!t.milestoneId)||String(t.milestoneId)===fMile);
   }),[tasks,fStatus,fAssignee,fCat,fMile,showCompleted]);
@@ -750,16 +752,16 @@ function App(){
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,padding:"8px 12px",background:showCompleted?"#dcfce7":"white",border:`1px solid ${showCompleted?"#86efac":"#a8d5b5"}`,borderRadius:10,transition:"all 0.2s"}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <span style={{fontSize:13,fontWeight:700,color:showCompleted?"#15803d":BLUE_DARK}}>
-                {showCompleted?"✅ Mostrando todas las tareas":"📋 Tareas activas"}
+                {showCompleted?"✅ Tareas resueltas":"📋 Tareas activas"}
               </span>
               <span style={{fontSize:11,color:"#6b7280"}}>
                 {showCompleted
-                  ? `(incluye ${stats.listo} resuelta${stats.listo!==1?"s":""})`
+                  ? `${stats.listo} tarea${stats.listo!==1?"s":""} completada${stats.listo!==1?"s":""}`
                   : stats.listo>0?`${stats.listo} tarea${stats.listo!==1?"s":""} resuelta${stats.listo!==1?"s":""} oculta${stats.listo!==1?"s":""}`:"sin tareas resueltas"}
               </span>
             </div>
             <button onClick={()=>setShowCompleted(s=>!s)} style={{background:showCompleted?"white":BLUE_MID,color:showCompleted?BLUE_DARK:"white",border:`1px solid ${showCompleted?"#a8d5b5":BLUE_MID}`,borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
-              {showCompleted?"👁️ Ocultar resueltas":`✅ Ver tareas resueltas${stats.listo>0?` (${stats.listo})`:""}`}
+              {showCompleted?"← Volver a tareas activas":`✅ Ver tareas resueltas${stats.listo>0?` (${stats.listo})`:""}`}
             </button>
           </div>
 
