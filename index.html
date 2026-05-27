@@ -25,8 +25,14 @@ const SUPABASE_URL = "https://vcdgurkuoqsdvwvpnevr.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjZGd1cmt1b3FzZHZ3dnBuZXZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MjYxNDQsImV4cCI6MjA4ODMwMjE0NH0._fC7LXnggqXyniyOAb2orZj-QHY1_Xrf_-FnKVju9S8";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+const ALLOWED_DOMAIN = "@parquetempisque.com";
+
 const TEAM        = ["Andy","Marianela","Adrián","Tamara","Abel"];
 const TEAM_EMAILS = {"Andy":"arojas@parquetempisque.com","Abel":"acamposp@parquetempisque.com","Marianela":"msanchez@parquetempisque.com","Adrián":"agurierrez@parquetempisque.com","Tamara":"tmunoz@parquetempisque.com"};
+// Reverse lookup: email → nombre
+const EMAIL_TO_NAME = Object.fromEntries(Object.entries(TEAM_EMAILS).map(([n,e])=>[e.toLowerCase(),n]));
+function nameFromEmail(email){if(!email)return null;return EMAIL_TO_NAME[email.toLowerCase()]||email.split("@")[0];}
+
 const PRIORITIES  = ["Alta","Media","Baja"];
 const STATUSES    = ["Pendiente","En progreso","Listo"];
 const CATEGORIES  = ["Logística","Decoración","Comunicación","Proveedores","Presupuesto","Coordinación","Otro"];
@@ -40,14 +46,14 @@ const STATUS_STYLE   ={"Pendiente":"bg-gray-100 text-gray-600 border border-gray
 const PRIORITY_STYLE ={"Alta":"bg-red-100 text-red-700 border border-red-300","Media":"bg-yellow-100 text-yellow-700 border border-yellow-300","Baja":"bg-gray-100 text-gray-500 border border-gray-300"};
 const CATEGORY_STYLE ={"Logística":"bg-blue-100 text-blue-700 border border-blue-300","Decoración":"bg-pink-100 text-pink-700 border border-pink-300","Comunicación":"bg-purple-100 text-purple-700 border border-purple-300","Proveedores":"bg-orange-100 text-orange-700 border border-orange-300","Presupuesto":"bg-green-100 text-green-700 border border-green-300","Coordinación":"bg-teal-100 text-teal-700 border border-teal-300","Otro":"bg-gray-100 text-gray-500 border border-gray-300"};
 
-const EMPTY_TASK      ={name:"",assignees:["Andy"],priority:"Media",status:"Pendiente",deadline:today,category:"Logística",notes:"",progress:0,effort:3,links:[],comments:[],subtasks:[],milestoneId:null};
+const EMPTY_TASK      ={name:"",assignees:["Andy"],priority:"Media",status:"Pendiente",deadline:today,category:"Logística",notes:"",progress:0,effort:3,links:[],comments:[],subtasks:[],milestoneId:null,createdBy:null};
 const EMPTY_MILESTONE ={name:"",deadline:today,description:"",closed:false};
 
 function isOverdue(d,s){return s!=="Listo"&&d<today;}
 function daysUntil(d){return Math.ceil((new Date(d)-new Date(today))/(1000*60*60*24));}
 
-function rowToTask(r){return{id:r.id,name:r.name||"",assignees:Array.isArray(r.assignees)?r.assignees:[],priority:r.priority||"Media",status:r.status||"Pendiente",deadline:r.deadline||today,category:r.category||"Otro",notes:r.notes||"",progress:r.progress||0,effort:r.effort||3,links:Array.isArray(r.links)?r.links:[],comments:Array.isArray(r.comments)?r.comments:[],subtasks:Array.isArray(r.subtasks)?r.subtasks:[],milestoneId:r.milestone_id||null};}
-function taskToRow(t){return{name:t.name,assignees:t.assignees,priority:t.priority,status:t.status,deadline:t.deadline,category:t.category,notes:t.notes,progress:t.progress,effort:t.effort,links:t.links,comments:t.comments,subtasks:t.subtasks,milestone_id:t.milestoneId};}
+function rowToTask(r){return{id:r.id,name:r.name||"",assignees:Array.isArray(r.assignees)?r.assignees:[],priority:r.priority||"Media",status:r.status||"Pendiente",deadline:r.deadline||today,category:r.category||"Otro",notes:r.notes||"",progress:r.progress||0,effort:r.effort||3,links:Array.isArray(r.links)?r.links:[],comments:Array.isArray(r.comments)?r.comments:[],subtasks:Array.isArray(r.subtasks)?r.subtasks:[],milestoneId:r.milestone_id||null,createdBy:r.created_by||null};}
+function taskToRow(t){return{name:t.name,assignees:t.assignees,priority:t.priority,status:t.status,deadline:t.deadline,category:t.category,notes:t.notes,progress:t.progress,effort:t.effort,links:t.links,comments:t.comments,subtasks:t.subtasks,milestone_id:t.milestoneId,created_by:t.createdBy};}
 function rowToMilestone(r){return{id:r.id,name:r.name||"",deadline:r.deadline||today,description:r.description||"",closed:r.closed||false};}
 function milestoneToRow(m){return{name:m.name,deadline:m.deadline,description:m.description,closed:m.closed};}
 
@@ -57,30 +63,87 @@ function notifKey(id,type){return `${id}_${type}_${today}`;}
 function alreadySent(id,type){return !!_notifSent[notifKey(id,type)];}
 function markSent(id,type){_notifSent[notifKey(id,type)]=true;}
 
-async function sendEmail(to_email,to_name,subject,message){
+// ── EmailJS con remitente dinámico ─────────────────────────────
+async function sendEmail(to_email,to_name,subject,message,from_name,reply_to){
   if(EMAILJS_PUBLIC_KEY==="TU_PUBLIC_KEY"){console.log("EmailJS pendiente →",to_email,subject);return;}
-  try{await emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,{email:to_email,name:to_name,title:subject,message},EMAILJS_PUBLIC_KEY);}
+  try{
+    await emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,{
+      email:to_email,
+      name:to_name,
+      title:subject,
+      message,
+      from_name: from_name || "Parque Tempisque – Eventos",
+      reply_to: reply_to || ""
+    },EMAILJS_PUBLIC_KEY);
+  }
   catch(e){console.error("EmailJS:",e);}
 }
-async function notifyAssigned(task){
+
+async function notifyAssigned(task, sender){
   if(alreadySent(task.id,"assigned"))return;
-  for(const n of task.assignees){const e=TEAM_EMAILS[n];if(e)await sendEmail(e,n,`📋 Nueva tarea: ${task.name}`,`Hola ${n},\n\nSe te asignó "${task.name}".\nPrioridad: ${task.priority} | Deadline: ${task.deadline}\n${task.notes?"\nNotas: "+task.notes:""}\n\nParque Tempisque – Eventos`);}
+  const senderName = sender?.name || task.createdBy || "Sistema";
+  const senderEmail = sender?.email || "";
+  for(const n of task.assignees){
+    const e=TEAM_EMAILS[n];if(!e)continue;
+    // No notificar a quien creó la tarea (si se asignó a sí mismo, ya sabe)
+    if(e.toLowerCase()===senderEmail.toLowerCase())continue;
+    await sendEmail(e,n,
+      `📋 Nueva tarea de ${senderName}: ${task.name}`,
+      `Hola ${n},\n\n${senderName} te asignó la tarea "${task.name}".\n\nPrioridad: ${task.priority} | Deadline: ${task.deadline}\n${task.notes?"\nNotas: "+task.notes:""}\n\n— Asignado por: ${senderName}${senderEmail?` (${senderEmail})`:""}\n\nParque Tempisque – Eventos`,
+      senderName,
+      senderEmail
+    );
+  }
   markSent(task.id,"assigned");
 }
-async function notifyEdited(task){
+
+async function notifyEdited(task, sender){
   if(alreadySent(task.id,"edited"))return;
-  for(const n of task.assignees){const e=TEAM_EMAILS[n];if(e)await sendEmail(e,n,`✏️ Tarea actualizada: ${task.name}`,`Hola ${n},\n\nLa tarea "${task.name}" fue modificada.\nEstado: ${task.status} | Avance: ${task.progress}% | Deadline: ${task.deadline}\n\nParque Tempisque – Eventos`);}
+  const senderName = sender?.name || "Sistema";
+  const senderEmail = sender?.email || "";
+  for(const n of task.assignees){
+    const e=TEAM_EMAILS[n];if(!e)continue;
+    if(e.toLowerCase()===senderEmail.toLowerCase())continue;
+    await sendEmail(e,n,
+      `✏️ Tarea actualizada por ${senderName}: ${task.name}`,
+      `Hola ${n},\n\n${senderName} modificó la tarea "${task.name}".\n\nEstado: ${task.status} | Avance: ${task.progress}% | Deadline: ${task.deadline}\n\n— Modificado por: ${senderName}${senderEmail?` (${senderEmail})`:""}\n\nParque Tempisque – Eventos`,
+      senderName,
+      senderEmail
+    );
+  }
   markSent(task.id,"edited");
 }
-async function notifyMilestoneEdited(m){
+
+async function notifyMilestoneEdited(m, sender){
   if(alreadySent(m.id,"milestone_edited"))return;
-  for(const n of TEAM){const e=TEAM_EMAILS[n];if(e)await sendEmail(e,n,`🎯 Objetivo actualizado: ${m.name}`,`Hola ${n},\n\nEl objetivo "${m.name}" fue modificado.\nDeadline: ${m.deadline} | Estado: ${m.closed?"Cerrado":"Abierto"}\n\nParque Tempisque – Eventos`);}
+  const senderName = sender?.name || "Sistema";
+  const senderEmail = sender?.email || "";
+  for(const n of TEAM){
+    const e=TEAM_EMAILS[n];if(!e)continue;
+    if(e.toLowerCase()===senderEmail.toLowerCase())continue;
+    await sendEmail(e,n,
+      `🎯 Objetivo actualizado por ${senderName}: ${m.name}`,
+      `Hola ${n},\n\n${senderName} modificó el objetivo "${m.name}".\n\nDeadline: ${m.deadline} | Estado: ${m.closed?"Cerrado":"Abierto"}\n\n— Modificado por: ${senderName}${senderEmail?` (${senderEmail})`:""}\n\nParque Tempisque – Eventos`,
+      senderName,
+      senderEmail
+    );
+  }
   markSent(m.id,"milestone_edited");
 }
+
 async function notifyOverdue(task){
   const type=daysUntil(task.deadline)<0?"overdue":"upcoming";
   if(alreadySent(task.id,type))return;
-  for(const n of task.assignees){const e=TEAM_EMAILS[n];if(!e)continue;const d=daysUntil(task.deadline);await sendEmail(e,n,d<0?`⚠️ Tarea vencida: ${task.name}`:`🔔 Por vencer: ${task.name}`,`Hola ${n},\n\n${d<0?`"${task.name}" venció hace ${Math.abs(d)} día(s).`:`"${task.name}" vence en ${d} día(s) (${task.deadline}).`}\nEstado: ${task.status}\n\nParque Tempisque – Eventos`);}
+  for(const n of task.assignees){
+    const e=TEAM_EMAILS[n];if(!e)continue;
+    const d=daysUntil(task.deadline);
+    await sendEmail(e,n,
+      d<0?`⚠️ Tarea vencida: ${task.name}`:`🔔 Por vencer: ${task.name}`,
+      `Hola ${n},\n\n${d<0?`"${task.name}" venció hace ${Math.abs(d)} día(s).`:`"${task.name}" vence en ${d} día(s) (${task.deadline}).`}\nEstado: ${task.status}\n${task.createdBy?`\nCreada por: ${task.createdBy}`:""}\n\nParque Tempisque – Eventos`,
+      "Parque Tempisque – Eventos",
+      ""
+    );
+  }
   markSent(task.id,type);
 }
 
@@ -96,6 +159,107 @@ function Toast({msg,type,onDone}){
   useEffect(()=>{const t=setTimeout(onDone,3500);return()=>clearTimeout(t);},[]);
   const cfg={ok:["#d1fae5","#065f46","✅"],err:["#fee2e2","#991b1b","❌"],warn:["#fefce8","#92400e","⚠️"]}[type]||["#d1fae5","#065f46","✅"];
   return <div style={{position:"fixed",bottom:24,right:24,zIndex:9999,background:cfg[0],color:cfg[1],border:`1px solid ${cfg[1]}33`,borderRadius:12,padding:"12px 20px",fontWeight:700,fontSize:13,boxShadow:"0 4px 16px rgba(0,0,0,0.15)",maxWidth:340}}>{cfg[2]} {msg}</div>;
+}
+
+// ── Pantalla de Login ──────────────────────────────────────────
+function LoginScreen({onLogin}){
+  const [email,setEmail]=useState("");
+  const [password,setPassword]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [err,setErr]=useState(null);
+  const [info,setInfo]=useState(null);
+
+  async function handleLogin(){
+    setErr(null);setInfo(null);
+    if(!email.trim()||!password){setErr("Ingresá correo y contraseña");return;}
+    if(!email.toLowerCase().endsWith(ALLOWED_DOMAIN)){setErr(`Solo correos ${ALLOWED_DOMAIN}`);return;}
+    setBusy(true);
+    try{
+      const {data,error}=await sb.auth.signInWithPassword({email:email.trim().toLowerCase(),password});
+      if(error)throw error;
+      onLogin(data.session);
+    }catch(e){
+      setErr(e.message==="Invalid login credentials"?"Correo o contraseña incorrectos":(e.message||"Error al iniciar sesión"));
+    }finally{setBusy(false);}
+  }
+
+  async function handleReset(){
+    setErr(null);setInfo(null);
+    if(!email.trim()){setErr("Ingresá tu correo primero");return;}
+    if(!email.toLowerCase().endsWith(ALLOWED_DOMAIN)){setErr(`Solo correos ${ALLOWED_DOMAIN}`);return;}
+    setBusy(true);
+    try{
+      const {error}=await sb.auth.resetPasswordForEmail(email.trim().toLowerCase(),{redirectTo:window.location.href});
+      if(error)throw error;
+      setInfo("Te enviamos un correo para restablecer tu contraseña ✉️");
+    }catch(e){setErr(e.message||"Error al solicitar restablecimiento");}
+    finally{setBusy(false);}
+  }
+
+  return(
+    <div style={{minHeight:"100vh",background:`linear-gradient(135deg, ${BLUE_LIGHT} 0%, #d4ead9 100%)`,display:"flex",alignItems:"center",justifyContent:"center",padding:16,position:"relative",overflow:"hidden"}}>
+      <div style={{position:"absolute",top:-80,right:-80,width:300,height:300,borderRadius:"50%",background:`radial-gradient(circle, ${BLUE_MID}22, transparent 70%)`}}/>
+      <div style={{position:"absolute",bottom:-100,left:-60,width:280,height:280,borderRadius:"50%",background:`radial-gradient(circle, ${BLUE_DARK}1a, transparent 70%)`}}/>
+      <div style={{background:"white",borderRadius:20,padding:"32px 28px",maxWidth:400,width:"100%",boxShadow:"0 20px 50px rgba(19,69,34,0.18)",border:"1px solid #a8d5b5",position:"relative",zIndex:1}}>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:24}}>
+          <div style={{background:BLUE_DARK,borderRadius:16,padding:14,marginBottom:12,boxShadow:"0 6px 18px rgba(19,69,34,0.25)"}}>
+            <Logo size={56}/>
+          </div>
+          <p style={{margin:0,fontSize:10,fontWeight:800,letterSpacing:3,color:BLUE_MID,textTransform:"uppercase"}}>Parque Tempisque</p>
+          <h1 style={{margin:"6px 0 2px",fontSize:22,fontWeight:800,color:BLUE_DARK}}>Dashboard Eventos</h1>
+          <p style={{margin:0,fontSize:12,color:"#6b7280"}}>Iniciá sesión para continuar</p>
+        </div>
+
+        <label style={{fontSize:11,color:"#6b7280",fontWeight:700}}>Correo corporativo</label>
+        <input
+          type="email"
+          value={email}
+          onChange={e=>setEmail(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&document.getElementById("pwfield").focus()}
+          placeholder={`tucorreo${ALLOWED_DOMAIN}`}
+          autoFocus
+          style={{width:"100%",border:"1px solid #d1d5db",borderRadius:10,padding:"10px 14px",fontSize:13,marginTop:6,marginBottom:14,outline:"none",transition:"border 0.2s"}}
+          onFocus={e=>e.target.style.border=`1.5px solid ${BLUE_MID}`}
+          onBlur={e=>e.target.style.border="1px solid #d1d5db"}
+        />
+
+        <label style={{fontSize:11,color:"#6b7280",fontWeight:700}}>Contraseña</label>
+        <input
+          id="pwfield"
+          type="password"
+          value={password}
+          onChange={e=>setPassword(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&handleLogin()}
+          placeholder="••••••••"
+          style={{width:"100%",border:"1px solid #d1d5db",borderRadius:10,padding:"10px 14px",fontSize:13,marginTop:6,marginBottom:6,outline:"none",transition:"border 0.2s"}}
+          onFocus={e=>e.target.style.border=`1.5px solid ${BLUE_MID}`}
+          onBlur={e=>e.target.style.border="1px solid #d1d5db"}
+        />
+
+        <div style={{textAlign:"right",marginBottom:14}}>
+          <button onClick={handleReset} disabled={busy} style={{background:"none",border:"none",color:BLUE_MID,fontSize:11,fontWeight:600,cursor:busy?"not-allowed":"pointer",textDecoration:"underline"}}>¿Olvidaste tu contraseña?</button>
+        </div>
+
+        {err&&<div style={{background:"#fef2f2",border:"1px solid #fca5a5",color:"#991b1b",borderRadius:10,padding:"8px 12px",fontSize:12,marginBottom:12}}>❌ {err}</div>}
+        {info&&<div style={{background:"#ecfdf5",border:"1px solid #6ee7b7",color:"#065f46",borderRadius:10,padding:"8px 12px",fontSize:12,marginBottom:12}}>{info}</div>}
+
+        <button
+          onClick={handleLogin}
+          disabled={busy}
+          style={{width:"100%",background:busy?"#9ca3af":`linear-gradient(135deg, ${BLUE_MID}, ${BLUE_DARK})`,color:"white",border:"none",borderRadius:10,padding:"11px 16px",fontSize:14,fontWeight:700,cursor:busy?"not-allowed":"pointer",boxShadow:busy?"none":"0 4px 14px rgba(26,92,46,0.35)",transition:"transform 0.15s"}}
+          onMouseEnter={e=>!busy&&(e.target.style.transform="translateY(-1px)")}
+          onMouseLeave={e=>e.target.style.transform="translateY(0)"}
+        >
+          {busy?"⏳ Verificando...":"Iniciar sesión →"}
+        </button>
+
+        <p style={{textAlign:"center",fontSize:11,color:"#9ca3af",marginTop:18,marginBottom:0}}>
+          Acceso restringido al equipo de eventos<br/>
+          <span style={{color:BLUE_MID,fontWeight:600}}>{ALLOWED_DOMAIN}</span>
+        </p>
+      </div>
+    </div>
+  );
 }
 
 // ── Gráfica SVG ────────────────────────────────────────────────
@@ -156,13 +320,13 @@ function EsfuerzoChart({tasks}){
 }
 
 // ── Modal detalle tarea ────────────────────────────────────────
-function DetailModal({task,onClose,onUpdate}){
+function DetailModal({task,onClose,onUpdate,currentUser}){
   const [tab,setTab]=useState("info");
   const [nc,setNc]=useState("");const [nll,setNll]=useState("");const [nlu,setNlu]=useState("");const [ns,setNs]=useState("");
   const iS={width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:13,marginTop:4};
   const tabs=[{k:"info",l:"ℹ️ Info"},{k:"sub",l:`✅ (${task.subtasks.length})`},{k:"com",l:`💬 (${task.comments.length})`},{k:"lnk",l:`📎 (${task.links.length})`}];
   const upd=onUpdate;
-  function addCom(){if(!nc.trim())return;upd({...task,comments:[...task.comments,{id:Date.now(),author:"Andy",text:nc,date:today}]});setNc("");}
+  function addCom(){if(!nc.trim())return;upd({...task,comments:[...task.comments,{id:Date.now(),author:currentUser?.name||"Usuario",text:nc,date:today}]});setNc("");}
   function addLnk(){if(!nlu.trim())return;upd({...task,links:[...task.links,{id:Date.now(),label:nll||nlu,url:nlu}]});setNll("");setNlu("");}
   function addSub(){if(!ns.trim())return;upd({...task,subtasks:[...task.subtasks,{id:Date.now(),text:ns,done:false}]});setNs("");}
   function togSub(id){const s=task.subtasks.map(x=>x.id===id?{...x,done:!x.done}:x);const d=s.filter(x=>x.done).length;upd({...task,subtasks:s,progress:s.length>0?Math.round(d/s.length*100):task.progress});}
@@ -180,6 +344,7 @@ function DetailModal({task,onClose,onUpdate}){
                 <Badge label={task.category} style={CATEGORY_STYLE[task.category]}/>
                 <span style={{fontSize:11,background:"#d1fae5",color:BLUE_DARK,borderRadius:10,padding:"1px 8px",fontWeight:700}}>⚡ {task.effort} pts</span>
               </div>
+              {task.createdBy&&<p style={{margin:"6px 0 0",fontSize:11,color:"#a8d5b5"}}>Creada por: <b style={{color:"white"}}>{task.createdBy}</b></p>}
             </div>
             <button onClick={onClose} style={{background:"none",border:"none",color:"white",fontSize:20,cursor:"pointer"}}>✕</button>
           </div>
@@ -323,6 +488,8 @@ function MilestonesPanel({milestones,tasks,onAdd,onToggle,onDelete,onEdit}){
 // APP PRINCIPAL
 // ══════════════════════════════════════════════════════════════
 function App(){
+  const [session,setSession]=useState(null);
+  const [authChecking,setAuthChecking]=useState(true);
   const [tasks,setTasks]=useState([]);
   const [milestones,setMilestones]=useState([]);
   const [loading,setLoading]=useState(true);
@@ -339,10 +506,32 @@ function App(){
   const [detailTask,setDetailTask]=useState(null);
   const [alertDays,setAlertDays]=useState(3);
   const [dbError,setDbError]=useState(null);
+  const [userMenuOpen,setUserMenuOpen]=useState(false);
+
+  // Usuario actual derivado de la sesión
+  const currentUser = useMemo(()=>{
+    if(!session?.user?.email)return null;
+    const email=session.user.email.toLowerCase();
+    return {email,name:nameFromEmail(email)};
+  },[session]);
 
   function showT(msg,type="ok"){setToast({msg,type});}
 
+  // ── Verificar sesión existente al cargar ─────────────────────
   useEffect(()=>{
+    async function checkSession(){
+      const {data:{session:s}}=await sb.auth.getSession();
+      setSession(s);
+      setAuthChecking(false);
+    }
+    checkSession();
+    const {data:{subscription}}=sb.auth.onAuthStateChange((_event,s)=>{setSession(s);});
+    return ()=>subscription.unsubscribe();
+  },[]);
+
+  // ── Cargar datos solo cuando hay sesión ──────────────────────
+  useEffect(()=>{
+    if(!session)return;
     async function load(){
       setLoading(true);
       const [{data:td,error:te},{data:md,error:me}]=await Promise.all([
@@ -355,7 +544,16 @@ function App(){
       setLoading(false);
     }
     load();
-  },[]);
+  },[session]);
+
+  async function handleLogout(){
+    await sb.auth.signOut();
+    setSession(null);
+    setTasks([]);
+    setMilestones([]);
+    setUserMenuOpen(false);
+    showT("Sesión cerrada");
+  }
 
   async function saveTask(){
     if(!form.name.trim()){showT("El nombre es obligatorio","warn");return;}
@@ -367,14 +565,16 @@ function App(){
         if(error)throw error;
         setTasks(ts=>ts.map(t=>t.id===editId?u:t));
         if(detailTask?.id===editId)setDetailTask(u);
-        await notifyEdited(u);
+        await notifyEdited(u,currentUser);
         showT("Tarea actualizada ✅");setEditId(null);
       } else {
-        const payload={id:Date.now(),...taskToRow(form)};
+        // Nueva tarea: registrar al creador
+        const taskWithCreator={...form,createdBy:currentUser?.name||null};
+        const payload={id:Date.now(),...taskToRow(taskWithCreator)};
         const {data,error}=await sb.from("eventos_tasks").insert(payload).select().single();
         if(error)throw error;
         const nt=rowToTask(data);setTasks(ts=>[...ts,nt]);
-        await notifyAssigned(nt);
+        await notifyAssigned(nt,currentUser);
         showT("Tarea creada ✅");
       }
       setForm(EMPTY_TASK);setShowForm(false);
@@ -413,7 +613,7 @@ function App(){
     const {error}=await sb.from("eventos_milestones").update(milestoneToRow(m)).eq("id",m.id);
     if(error){showT("Error al editar","err");return;}
     setMilestones(ms=>ms.map(x=>x.id===m.id?m:x));
-    await notifyMilestoneEdited(m);
+    await notifyMilestoneEdited(m,currentUser);
     showT("Objetivo actualizado ✅");
   }
 
@@ -422,7 +622,7 @@ function App(){
     const {error}=await sb.from("eventos_milestones").update({closed:u.closed}).eq("id",m.id);
     if(error){showT("Error","err");return;}
     setMilestones(ms=>ms.map(x=>x.id===m.id?u:x));
-    await notifyMilestoneEdited(u);
+    await notifyMilestoneEdited(u,currentUser);
     showT(u.closed?"Objetivo cerrado ✅":"Objetivo reabierto");
   }
 
@@ -451,12 +651,17 @@ function App(){
   const S={inp:{width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:13,marginTop:4},sel:{width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:13,marginTop:4}};
   const VIEWS=[{k:"tabla",l:"📋 Tabla"},{k:"esfuerzo",l:"📊 Esfuerzo"},{k:"milestones",l:"🎯 Objetivos"},{k:"resumen",l:"📄 Resumen"}];
 
+  // ── Gates de renderizado ─────────────────────────────────────
+  if(authChecking)return <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,background:BLUE_LIGHT}}><Logo size={64}/><p style={{color:BLUE_DARK,fontWeight:700,fontSize:15}}>Verificando sesión...</p></div>;
+
+  if(!session)return <LoginScreen onLogin={s=>setSession(s)}/>;
+
   if(loading)return <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,background:BLUE_LIGHT}}><Logo size={64}/><p style={{color:BLUE_DARK,fontWeight:700,fontSize:15}}>Conectando con Supabase...</p></div>;
 
   return(
     <div style={{minHeight:"100vh",background:BLUE_LIGHT,fontFamily:"sans-serif"}}>
       {toast&&<Toast msg={toast.msg} type={toast.type} onDone={()=>setToast(null)}/>}
-      {detailTask&&<DetailModal task={detailTask} onClose={()=>setDetailTask(null)} onUpdate={updateTask}/>}
+      {detailTask&&<DetailModal task={detailTask} onClose={()=>setDetailTask(null)} onUpdate={updateTask} currentUser={currentUser}/>}
 
       <div style={{background:BLUE_DARK,padding:"12px 24px"}}>
         <div style={{maxWidth:1100,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
@@ -473,6 +678,24 @@ function App(){
             <div style={{fontSize:11,padding:"4px 12px",borderRadius:20,fontWeight:600,background:EMAILJS_PUBLIC_KEY!=="TU_PUBLIC_KEY"?"rgba(26,92,46,0.4)":"rgba(251,191,36,0.2)",color:EMAILJS_PUBLIC_KEY!=="TU_PUBLIC_KEY"?"#a8d5b5":"#fcd34d"}}>📧 EmailJS {EMAILJS_PUBLIC_KEY!=="TU_PUBLIC_KEY"?"activo":"pendiente"}</div>
             <div style={{display:"flex",gap:4}}>
               {VIEWS.map(v=><button key={v.k} onClick={()=>setView(v.k)} style={{background:view===v.k?"white":"rgba(255,255,255,0.12)",color:view===v.k?BLUE_DARK:"white",border:"none",borderRadius:8,padding:"7px 12px",fontSize:12,fontWeight:600,cursor:"pointer"}}>{v.l}</button>)}
+            </div>
+            {/* ── Menú usuario ──────────────────────────────── */}
+            <div style={{position:"relative"}}>
+              <button onClick={()=>setUserMenuOpen(o=>!o)} style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:20,padding:"4px 10px 4px 4px",cursor:"pointer",color:"white"}}>
+                <Avatar name={currentUser?.name||"?"} size={26}/>
+                <span style={{fontSize:12,fontWeight:700}}>{currentUser?.name||"Usuario"}</span>
+                <span style={{fontSize:10,opacity:0.7}}>▾</span>
+              </button>
+              {userMenuOpen&&<>
+                <div onClick={()=>setUserMenuOpen(false)} style={{position:"fixed",inset:0,zIndex:50}}/>
+                <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,background:"white",borderRadius:12,padding:8,minWidth:220,boxShadow:"0 8px 24px rgba(0,0,0,0.18)",border:"1px solid #a8d5b5",zIndex:51}}>
+                  <div style={{padding:"8px 12px",borderBottom:"1px solid #f1f5f9"}}>
+                    <p style={{margin:0,fontSize:13,fontWeight:700,color:BLUE_DARK}}>{currentUser?.name}</p>
+                    <p style={{margin:"2px 0 0",fontSize:11,color:"#6b7280",wordBreak:"break-all"}}>{currentUser?.email}</p>
+                  </div>
+                  <button onClick={handleLogout} style={{width:"100%",textAlign:"left",background:"none",border:"none",padding:"8px 12px",fontSize:12,fontWeight:600,color:"#991b1b",cursor:"pointer",borderRadius:8,marginTop:4}}>🚪 Cerrar sesión</button>
+                </div>
+              </>}
             </div>
           </div>
         </div>
@@ -520,6 +743,7 @@ function App(){
 
           {showForm&&<div style={{background:"white",border:"1px solid #a8d5b5",borderRadius:16,padding:20,marginBottom:16}}>
             <h3 style={{margin:"0 0 14px",color:BLUE_DARK}}>{editId?"✏️ Editar tarea":"➕ Nueva tarea"}</h3>
+            {!editId&&currentUser&&<p style={{margin:"-8px 0 12px",fontSize:11,color:"#6b7280"}}>Se registrará como creada por <b style={{color:BLUE_DARK}}>{currentUser.name}</b></p>}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <div style={{gridColumn:"1/-1"}}>
                 <label style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Nombre *</label>
@@ -557,10 +781,10 @@ function App(){
           <div style={{background:"white",borderRadius:16,overflow:"hidden",border:"1px solid #a8d5b5",boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
               <thead><tr style={{background:BLUE_DARK,color:"white"}}>
-                {["Tarea","Objetivo","Participantes","Categoría","Prioridad","Estado","Esfuerzo","Avance","Deadline",""].map(h=><th key={h} style={{textAlign:"left",padding:"10px 12px",fontSize:10,fontWeight:700,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}
+                {["Tarea","Objetivo","Participantes","Creada por","Categoría","Prioridad","Estado","Esfuerzo","Avance","Deadline",""].map(h=><th key={h} style={{textAlign:"left",padding:"10px 12px",fontSize:10,fontWeight:700,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}
               </tr></thead>
               <tbody>
-                {filtered.length===0&&<tr><td colSpan={10} style={{textAlign:"center",color:"#9ca3af",padding:32}}>No hay tareas con estos filtros</td></tr>}
+                {filtered.length===0&&<tr><td colSpan={11} style={{textAlign:"center",color:"#9ca3af",padding:32}}>No hay tareas con estos filtros</td></tr>}
                 {filtered.map((t,i)=>{
                   const ms=milestones.find(m=>String(m.id)===String(t.milestoneId));
                   return <tr key={t.id} style={{background:i%2===0?"white":"#f4fbf6",borderBottom:"1px solid #e8f5ee"}}>
@@ -571,6 +795,7 @@ function App(){
                     </td>
                     <td style={{padding:"10px 12px"}}>{ms?<span style={{fontSize:11,background:"#d1fae5",color:BLUE_DARK,borderRadius:8,padding:"2px 8px",fontWeight:700}}>🎯 {ms.name}</span>:<span style={{fontSize:11,color:"#d1d5db"}}>—</span>}</td>
                     <td style={{padding:"10px 12px"}}><AvatarGroup assignees={t.assignees}/></td>
+                    <td style={{padding:"10px 12px"}}>{t.createdBy?<div style={{display:"flex",alignItems:"center",gap:5}}><Avatar name={t.createdBy} size={18}/><span style={{fontSize:11,color:"#374151",fontWeight:600}}>{t.createdBy}</span></div>:<span style={{fontSize:11,color:"#d1d5db"}}>—</span>}</td>
                     <td style={{padding:"10px 12px"}}><Badge label={t.category} style={CATEGORY_STYLE[t.category]}/></td>
                     <td style={{padding:"10px 12px"}}><Badge label={t.priority} style={PRIORITY_STYLE[t.priority]}/></td>
                     <td style={{padding:"10px 12px"}}><button onClick={()=>cycleStatus(t.id)} style={{background:"none",border:"none",cursor:"pointer",padding:0}}><Badge label={t.status} style={STATUS_STYLE[t.status]}/></button></td>
@@ -634,7 +859,7 @@ function App(){
               </div>
               {mt.map(t=><div key={t.id} style={{background:BLUE_LIGHT,borderRadius:12,padding:"10px 16px",marginBottom:6}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-                  <span style={{fontWeight:600,fontSize:13,color:"#1f2937"}}>{t.name}{isOverdue(t.deadline,t.status)&&<span style={{fontSize:11,color:"#ef4444",fontWeight:700,marginLeft:8}}>⚠️</span>}</span>
+                  <span style={{fontWeight:600,fontSize:13,color:"#1f2937"}}>{t.name}{isOverdue(t.deadline,t.status)&&<span style={{fontSize:11,color:"#ef4444",fontWeight:700,marginLeft:8}}>⚠️</span>}{t.createdBy&&<span style={{fontSize:10,color:"#9ca3af",fontWeight:500,marginLeft:8}}>· por {t.createdBy}</span>}</span>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
                     <Badge label={t.category} style={CATEGORY_STYLE[t.category]}/>
                     <Badge label={t.priority} style={PRIORITY_STYLE[t.priority]}/>
