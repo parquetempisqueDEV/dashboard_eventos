@@ -262,6 +262,99 @@ function LoginScreen({onLogin}){
   );
 }
 
+// ── Pantalla de Reset de Contraseña ────────────────────────────
+function PasswordResetScreen({onDone}){
+  const [pw,setPw]=useState("");
+  const [pw2,setPw2]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [err,setErr]=useState(null);
+  const [done,setDone]=useState(false);
+
+  async function handleReset(){
+    setErr(null);
+    if(pw.length<6){setErr("La contraseña debe tener al menos 6 caracteres");return;}
+    if(pw!==pw2){setErr("Las contraseñas no coinciden");return;}
+    setBusy(true);
+    try{
+      const {error}=await sb.auth.updateUser({password:pw});
+      if(error)throw error;
+      setDone(true);
+      // Limpiar el hash de la URL y dar tiempo para que el usuario lea el mensaje
+      window.history.replaceState(null,"",window.location.pathname);
+      setTimeout(async()=>{
+        await sb.auth.signOut();
+        onDone();
+      },2500);
+    }catch(e){setErr(e.message||"Error al cambiar contraseña");}
+    finally{setBusy(false);}
+  }
+
+  if(done)return(
+    <div style={{minHeight:"100vh",background:`linear-gradient(135deg, ${BLUE_LIGHT} 0%, #d4ead9 100%)`,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"white",borderRadius:20,padding:"40px 32px",maxWidth:400,width:"100%",boxShadow:"0 20px 50px rgba(19,69,34,0.18)",border:"1px solid #a8d5b5",textAlign:"center"}}>
+        <div style={{fontSize:48,marginBottom:12}}>✅</div>
+        <h2 style={{margin:"0 0 8px",fontSize:20,fontWeight:800,color:BLUE_DARK}}>¡Contraseña actualizada!</h2>
+        <p style={{margin:0,fontSize:13,color:"#6b7280"}}>Te redirigiremos al inicio de sesión en unos segundos...</p>
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{minHeight:"100vh",background:`linear-gradient(135deg, ${BLUE_LIGHT} 0%, #d4ead9 100%)`,display:"flex",alignItems:"center",justifyContent:"center",padding:16,position:"relative",overflow:"hidden"}}>
+      <div style={{position:"absolute",top:-80,right:-80,width:300,height:300,borderRadius:"50%",background:`radial-gradient(circle, ${BLUE_MID}22, transparent 70%)`}}/>
+      <div style={{position:"absolute",bottom:-100,left:-60,width:280,height:280,borderRadius:"50%",background:`radial-gradient(circle, ${BLUE_DARK}1a, transparent 70%)`}}/>
+      <div style={{background:"white",borderRadius:20,padding:"32px 28px",maxWidth:400,width:"100%",boxShadow:"0 20px 50px rgba(19,69,34,0.18)",border:"1px solid #a8d5b5",position:"relative",zIndex:1}}>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:24}}>
+          <div style={{background:BLUE_DARK,borderRadius:16,padding:14,marginBottom:12,boxShadow:"0 6px 18px rgba(19,69,34,0.25)"}}>
+            <Logo size={56}/>
+          </div>
+          <p style={{margin:0,fontSize:10,fontWeight:800,letterSpacing:3,color:BLUE_MID,textTransform:"uppercase"}}>Parque Tempisque</p>
+          <h1 style={{margin:"6px 0 2px",fontSize:22,fontWeight:800,color:BLUE_DARK}}>Nueva contraseña</h1>
+          <p style={{margin:0,fontSize:12,color:"#6b7280",textAlign:"center"}}>Ingresá tu nueva contraseña para acceder al dashboard</p>
+        </div>
+
+        <label style={{fontSize:11,color:"#6b7280",fontWeight:700}}>Nueva contraseña</label>
+        <input
+          type="password"
+          value={pw}
+          onChange={e=>setPw(e.target.value)}
+          placeholder="Mínimo 6 caracteres"
+          autoFocus
+          style={{width:"100%",border:"1px solid #d1d5db",borderRadius:10,padding:"10px 14px",fontSize:13,marginTop:6,marginBottom:14,outline:"none"}}
+          onFocus={e=>e.target.style.border=`1.5px solid ${BLUE_MID}`}
+          onBlur={e=>e.target.style.border="1px solid #d1d5db"}
+        />
+
+        <label style={{fontSize:11,color:"#6b7280",fontWeight:700}}>Confirmar contraseña</label>
+        <input
+          type="password"
+          value={pw2}
+          onChange={e=>setPw2(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&handleReset()}
+          placeholder="Repetí la contraseña"
+          style={{width:"100%",border:"1px solid #d1d5db",borderRadius:10,padding:"10px 14px",fontSize:13,marginTop:6,marginBottom:14,outline:"none"}}
+          onFocus={e=>e.target.style.border=`1.5px solid ${BLUE_MID}`}
+          onBlur={e=>e.target.style.border="1px solid #d1d5db"}
+        />
+
+        {err&&<div style={{background:"#fef2f2",border:"1px solid #fca5a5",color:"#991b1b",borderRadius:10,padding:"8px 12px",fontSize:12,marginBottom:12}}>❌ {err}</div>}
+
+        <button
+          onClick={handleReset}
+          disabled={busy}
+          style={{width:"100%",background:busy?"#9ca3af":`linear-gradient(135deg, ${BLUE_MID}, ${BLUE_DARK})`,color:"white",border:"none",borderRadius:10,padding:"11px 16px",fontSize:14,fontWeight:700,cursor:busy?"not-allowed":"pointer",boxShadow:busy?"none":"0 4px 14px rgba(26,92,46,0.35)"}}
+        >
+          {busy?"⏳ Guardando...":"Actualizar contraseña →"}
+        </button>
+
+        <p style={{textAlign:"center",fontSize:11,color:"#9ca3af",marginTop:18,marginBottom:0}}>
+          Después de actualizar deberás iniciar sesión nuevamente
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Gráfica SVG ────────────────────────────────────────────────
 function EsfuerzoChart({tasks}){
   const [tip,setTip]=useState(null);
@@ -490,6 +583,7 @@ function MilestonesPanel({milestones,tasks,onAdd,onToggle,onDelete,onEdit}){
 function App(){
   const [session,setSession]=useState(null);
   const [authChecking,setAuthChecking]=useState(true);
+  const [recoveryMode,setRecoveryMode]=useState(false);
   const [tasks,setTasks]=useState([]);
   const [milestones,setMilestones]=useState([]);
   const [loading,setLoading]=useState(true);
@@ -521,12 +615,27 @@ function App(){
   // ── Verificar sesión existente al cargar ─────────────────────
   useEffect(()=>{
     async function checkSession(){
+      // Detectar si vino del link de recuperación (Supabase pone el token en el hash de la URL)
+      const hash=window.location.hash;
+      if(hash.includes("type=recovery")){
+        setRecoveryMode(true);
+      }
       const {data:{session:s}}=await sb.auth.getSession();
       setSession(s);
       setAuthChecking(false);
     }
     checkSession();
-    const {data:{subscription}}=sb.auth.onAuthStateChange((_event,s)=>{setSession(s);});
+    const {data:{subscription}}=sb.auth.onAuthStateChange((event,s)=>{
+      if(event==="PASSWORD_RECOVERY"){
+        setRecoveryMode(true);
+        setSession(s);
+      } else if(event==="SIGNED_OUT"){
+        setRecoveryMode(false);
+        setSession(null);
+      } else {
+        setSession(s);
+      }
+    });
     return ()=>subscription.unsubscribe();
   },[]);
 
@@ -660,6 +769,8 @@ function App(){
 
   // ── Gates de renderizado ─────────────────────────────────────
   if(authChecking)return <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,background:BLUE_LIGHT}}><Logo size={64}/><p style={{color:BLUE_DARK,fontWeight:700,fontSize:15}}>Verificando sesión...</p></div>;
+
+  if(recoveryMode)return <PasswordResetScreen onDone={()=>{setRecoveryMode(false);setSession(null);}}/>;
 
   if(!session)return <LoginScreen onLogin={s=>setSession(s)}/>;
 
@@ -803,7 +914,8 @@ function App(){
           </div>}
 
           <div style={{background:"white",borderRadius:16,overflow:"hidden",border:"1px solid #a8d5b5",boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
+            <table style={{width:"100%",minWidth:1100,borderCollapse:"collapse",fontSize:13}}>
               <thead><tr style={{background:BLUE_DARK,color:"white"}}>
                 {["Tarea","Objetivo","Participantes","Creada por","Categoría","Prioridad","Estado","Esfuerzo","Avance","Deadline",""].map(h=><th key={h} style={{textAlign:"left",padding:"10px 12px",fontSize:10,fontWeight:700,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}
               </tr></thead>
@@ -832,18 +944,19 @@ function App(){
                     </td>
                     <td style={{padding:"10px 12px",color:"#6b7280",fontSize:12,whiteSpace:"nowrap"}}>{t.deadline}</td>
                     <td style={{padding:"10px 12px"}}>
-                      <div style={{display:"flex",gap:6}}>
-                        <button onClick={()=>setDetailTask(t)} style={{background:"none",border:"none",color:BLUE_MID,fontSize:12,fontWeight:600,cursor:"pointer"}}>Ver</button>
-                        <button onClick={()=>startEdit(t)} style={{background:"none",border:"none",color:"#3b82f6",fontSize:12,fontWeight:600,cursor:"pointer"}}>Editar</button>
-                        <button onClick={async()=>{if(window.confirm("¿Eliminar?"))await deleteTask(t.id);}} style={{background:"none",border:"none",color:"#f87171",fontSize:12,fontWeight:600,cursor:"pointer"}}>✕</button>
+                      <div style={{display:"flex",gap:4}}>
+                        <button onClick={()=>setDetailTask(t)} title="Ver detalle" style={{background:BLUE_LIGHT,border:`1px solid ${BLUE_MID}33`,color:BLUE_MID,fontSize:13,fontWeight:600,cursor:"pointer",borderRadius:6,padding:"4px 8px",lineHeight:1}}>👁️</button>
+                        <button onClick={()=>startEdit(t)} title="Editar" style={{background:"#dbeafe",border:"1px solid #93c5fd",color:"#1e40af",fontSize:13,fontWeight:600,cursor:"pointer",borderRadius:6,padding:"4px 8px",lineHeight:1}}>✏️</button>
+                        <button onClick={async()=>{if(window.confirm("¿Eliminar?"))await deleteTask(t.id);}} title="Eliminar" style={{background:"#fee2e2",border:"1px solid #fca5a5",color:"#991b1b",fontSize:13,fontWeight:600,cursor:"pointer",borderRadius:6,padding:"4px 8px",lineHeight:1}}>🗑️</button>
                       </div>
                     </td>
                   </tr>;
                 })}
               </tbody>
             </table>
+            </div>
           </div>
-          <p style={{fontSize:11,color:BLUE_MID,textAlign:"center",marginTop:8}}>☁️ Sincronizado con Supabase · Clic en estado para cambiarlo</p>
+          <p style={{fontSize:11,color:BLUE_MID,textAlign:"center",marginTop:8}}>☁️ Sincronizado con Supabase · Clic en estado para cambiarlo · Deslizá horizontalmente para ver más ↔️</p>
         </>}
 
         {view==="esfuerzo"&&<EsfuerzoChart tasks={tasks}/>}
